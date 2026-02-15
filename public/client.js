@@ -299,6 +299,7 @@ function renderGachaResult(container, item) {
 function renderCollection(div) {
     let sortedList = [...state.inventory]; 
 
+    // Logic sắp xếp (Giữ nguyên)
     if (state.sortMode === 'newest') sortedList.sort((a, b) => (b.obtainedAt || 0) - (a.obtainedAt || 0));
     else if (state.sortMode === 'oldest') sortedList.sort((a, b) => (a.obtainedAt || 0) - (b.obtainedAt || 0));
     else if (state.sortMode === 'rare_high') sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
@@ -353,6 +354,11 @@ function renderCollection(div) {
                 ${sortedList.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
                     
+                    // Nội dung ảnh (Đã bỏ các class gây xung đột, chỉ giữ lại class cơ bản)
+                    const imgContent = item.imgUrl 
+                        ? `<img src="${item.imgUrl}" class="w-full h-full object-contain p-2 transition duration-500 hover:scale-110">` 
+                        : `<span class="text-5xl hover:scale-125 transition duration-300 cursor-default">🧸</span>`;
+                    
                     const isSelected = state.selectedItems.includes(item.uniqueId);
                     const selectionClass = state.isSelectionMode 
                         ? (isSelected ? 'ring-4 ring-red-500 border-red-500 transform scale-95 opacity-100' : 'opacity-60 hover:opacity-100 grayscale-[0.5]') 
@@ -363,33 +369,32 @@ function renderCollection(div) {
                         : `itemDetail('${item.uniqueId}')`;
 
                     return `
-                        <div onclick="${clickAction}" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col ${selectionClass}">
+                        <div onclick="${clickAction}" class="group relative aspect-[3/4] rounded-xl shadow-sm hover:shadow-xl transition-all duration-200 bg-white border-2 ${conf.border} overflow-hidden ${selectionClass}">
                             
                             ${state.isSelectionMode ? `
-                                <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500 scale-110' : 'bg-slate-200'}">
+                                <div class="absolute top-2 right-2 z-50 w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500 scale-110' : 'bg-slate-200'}">
                                     ${isSelected ? '<i data-lucide="check" width="14" class="text-white stroke-[3px]"></i>' : ''}
                                 </div>
                             ` : ''}
 
-                            <div class="absolute inset-0 opacity-20 transition pointer-events-none ${conf.bg}"></div>
-                            
-                            <div class="absolute top-2 left-2 z-20">
-                                <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
+                            <div class="absolute top-0 left-0 right-0 h-[72%] bg-slate-50/50 flex items-center justify-center overflow-hidden z-10">
+                                <div class="absolute inset-0 opacity-20 pointer-events-none ${conf.bg}"></div>
+                                
+                                <div class="absolute top-2 left-2 z-20">
+                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
+                                </div>
+
+                                <div class="w-full h-full flex items-center justify-center relative z-10">
+                                    ${imgContent}
+                                </div>
                             </div>
 
-                            <div class="flex-1 relative w-full min-h-0 z-10">
-                                ${item.imgUrl 
-                                    ? `<img src="${item.imgUrl}" class="absolute inset-0 w-full h-full object-contain p-4 transition duration-500 group-hover:scale-110">`
-                                    : `<div class="absolute inset-0 flex items-center justify-center"><span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span></div>`
-                                }
-                            </div>
-
-                            <div class="w-full shrink-0 bg-white/95 flex flex-col justify-center items-center py-2 px-2 z-20 border-t border-slate-100 backdrop-blur-sm">
-                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 w-full px-1" title="${item.name}">${item.name}</div>
-                                <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-slate-50 px-2 rounded-full border border-slate-200">#${item.uniqueId}</div>
+                            <div class="absolute bottom-0 left-0 right-0 h-[28%] bg-white border-t border-slate-100 flex flex-col justify-center items-center px-2 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 w-full" title="${item.name}">${item.name}</div>
+                                <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-slate-100 px-2 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
                             
-                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
+                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-40 pointer-events-none"></div>` : ''}
                         </div>
                     `;
                 }).join('')}
@@ -1244,4 +1249,5 @@ function logout() {
     showToast('Đã đăng xuất', 'info');
     renderApp();
     setTab('profile');
+
 }
