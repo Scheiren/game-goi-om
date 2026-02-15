@@ -185,7 +185,6 @@ app.post('/api/burn', async (req, res) => {
                 let system = await System.findOne({ id: 'main' });
                 const tIdx = system.pillows.findIndex(p => p.id === item.id);
                 if (tIdx > -1) {
-                    system.pillows[tIdx].exQty += 1;
                     system.markModified('pillows');
                     await system.save();
                 }
@@ -227,9 +226,6 @@ app.post('/api/burn-batch', async (req, res) => {
         itemsToBurn.forEach(item => {
             if (item.rarity === 'EX') {
                 const tIdx = system.pillows.findIndex(p => p.id === item.id);
-                if (tIdx > -1) {
-                    system.pillows[tIdx].exQty += 1;
-                }
 
                 const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
                 const timestamp = Date.now().toString().slice(-5);
@@ -420,6 +416,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
