@@ -299,11 +299,17 @@ function renderGachaResult(container, item) {
 function renderCollection(div) {
     let sortedList = [...state.inventory]; 
 
-    // Logic sắp xếp (Giữ nguyên)
     if (state.sortMode === 'newest') sortedList.sort((a, b) => (b.obtainedAt || 0) - (a.obtainedAt || 0));
     else if (state.sortMode === 'oldest') sortedList.sort((a, b) => (a.obtainedAt || 0) - (b.obtainedAt || 0));
     else if (state.sortMode === 'rare_high') sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
     else if (state.sortMode === 'rare_low') sortedList.sort((a, b) => (RARITY_WEIGHT[a.rarity] || 0) - (RARITY_WEIGHT[b.rarity] || 0));
+
+    const sortLabels = {
+        'newest': '✨ Mới nhất',
+        'oldest': '🕰️ Cũ nhất',
+        'rare_high': '💎 Hiếm (EX)',
+        'rare_low': '📦 Thường (F)'
+    };
 
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-100">
@@ -320,21 +326,21 @@ function renderCollection(div) {
                         </button>
 
                         ${!state.isSelectionMode ? `
-                        <div class="relative">
-                            <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <div class="relative group">
+                            <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm group-hover:border-indigo-300 transition-all cursor-pointer">
                                 <i data-lucide="arrow-up-down" width="14" class="text-indigo-500"></i>
-                            </div>
-                            
-                            <select onchange="changeSort(this.value)" class="appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl py-2.5 pl-9 pr-8 shadow-sm focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition w-full">
-                                <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨ Mới nhất</option>
-                                <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️ Cũ nhất</option>
-                                <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎 Hiếm (EX)</option>
-                                <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦 Thường (F)</option>
-                            </select>
-                            
-                            <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <span class="text-xs font-bold text-slate-700 min-w-[70px] text-right truncate">
+                                    ${sortLabels[state.sortMode]}
+                                </span>
                                 <i data-lucide="chevron-down" width="14" class="text-slate-400"></i>
                             </div>
+                            
+                            <select onchange="changeSort(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+                                <option value="newest">Mới nhất</option>
+                                <option value="oldest">Cũ nhất</option>
+                                <option value="rare_high">Hiếm (EX)</option>
+                                <option value="rare_low">Thường (F)</option>
+                            </select>
                         </div>` : ''}
                     </div>
                 </div>
@@ -358,8 +364,8 @@ function renderCollection(div) {
                 ${sortedList.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
                     const imgContent = item.imgUrl 
-                        ? `<img src="${item.imgUrl}" class="w-full h-full object-contain hover:scale-110 transition duration-300">` 
-                        : `<span class="text-4xl">🧸</span>`;
+                        ? `<img src="${item.imgUrl}" class="absolute inset-0 w-full h-full object-contain p-2 transition duration-300 hover:scale-110">` 
+                        : `<div class="absolute inset-0 flex items-center justify-center"><span class="text-4xl">🧸</span></div>`;
                     
                     const isSelected = state.selectedItems.includes(item.uniqueId);
                     
@@ -372,29 +378,29 @@ function renderCollection(div) {
                         : `bg-white border-2 ${conf.border}`;
 
                     return `
-                        <div onclick="${clickAction}" class="relative aspect-[3/4.5] rounded-xl cursor-pointer shadow-sm hover:shadow-lg transition-all duration-200 p-2 flex flex-col gap-2 overflow-hidden ${wrapperClass}">
+                        <div onclick="${clickAction}" class="relative h-64 rounded-xl cursor-pointer shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col ${wrapperClass}">
                             
                             ${state.isSelectionMode ? `
-                                <div class="absolute top-2 right-2 z-50 w-5 h-5 rounded-full border border-slate-300 shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500 border-red-500' : 'bg-white'}">
-                                    ${isSelected ? '<i data-lucide="check" width="12" class="text-white"></i>' : ''}
+                                <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500' : 'bg-white'}">
+                                    ${isSelected ? '<i data-lucide="check" width="14" class="text-white"></i>' : ''}
                                 </div>
                             ` : ''}
 
-                            <div class="flex-1 w-full bg-slate-50 rounded-lg flex items-center justify-center overflow-hidden relative shadow-inner border border-slate-100">
+                            <div class="flex-1 w-full bg-slate-50 relative overflow-hidden border-b border-slate-100">
                                 <div class="absolute inset-0 opacity-20 pointer-events-none ${conf.bg}"></div>
                                 
-                                <div class="absolute top-1 left-1 z-20">
-                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase">${item.rarity}</span>
+                                <div class="absolute top-2 left-2 z-20">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase">${item.rarity}</span>
                                 </div>
 
-                                <div class="w-full h-full flex items-center justify-center relative z-10 p-2">
+                                <div class="relative w-full h-full z-10">
                                     ${imgContent}
                                 </div>
                             </div>
 
-                            <div class="h-12 shrink-0 w-full flex flex-col justify-center items-center text-center">
-                                <div class="font-bold text-xs text-slate-800 line-clamp-1 w-full" title="${item.name}">${item.name}</div>
-                                <div class="text-[9px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mt-1">#${item.uniqueId}</div>
+                            <div class="h-16 w-full flex-none bg-white flex flex-col justify-center items-center px-2 z-20">
+                                <div class="font-bold text-xs text-slate-800 line-clamp-2 text-center leading-tight mb-1" title="${item.name}">${item.name}</div>
+                                <div class="text-[9px] text-slate-400 font-mono bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
                             
                         </div>
@@ -1254,3 +1260,4 @@ function logout() {
     setTab('profile');
 
 }
+
