@@ -1,2 +1,2 @@
 # game-goi-om
-web link: https://game-goi-om.onrender.com
+web link: https://om-goi.onrender.com
