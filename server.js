@@ -6,6 +6,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 // --- CẤU HÌNH DATABASE ---
 mongoose.connect(process.env.MONGO_URI)
@@ -73,13 +74,12 @@ app.post('/api/login', async (req, res) => {
         const { username, password } = req.body;
 
         if (!username || !password) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Vui lòng nhập cả tên đăng nhập và mật khẩu' 
-            });
+            return res.status(400).json({ success: false, message: 'Thiếu tài khoản hoặc mật khẩu' });
         }
 
         let user = await User.findOne({ username });
+        let system = await System.findOne({ id: 'main' });
+        if (!system) system = await System.create({ id: 'main', pillows: INITIAL_TEMPLATES });
 
         if (!user) {
             // ĐĂNG KÝ MỚI
@@ -92,31 +92,21 @@ app.post('/api/login', async (req, res) => {
                 isAdmin: isFirstUser 
             });
 
-            let system = await System.findOne({ id: 'main' });
-            
-            // Chuyển sang object để xóa password trước khi gửi về client
             const userResponse = user.toObject();
-            delete userResponse.password;
+            delete userResponse.password; // Bảo mật: Xóa pass trước khi gửi về
 
             return res.json({ 
                 success: true, 
-                message: "Đăng ký tài khoản mới thành công",
+                message: "Đăng ký thành công",
                 user: userResponse, 
-                username: user.username,
                 serverInfo: system 
             });
         } else {
             // ĐĂNG NHẬP
             const isMatch = await bcrypt.compare(password, user.password);
-            
             if (!isMatch) {
-                return res.status(401).json({ 
-                    success: false, 
-                    message: 'Mật khẩu không chính xác!' 
-                });
+                return res.status(401).json({ success: false, message: 'Mật khẩu không chính xác!' });
             }
-
-            let system = await System.findOne({ id: 'main' });
 
             const userResponse = user.toObject();
             delete userResponse.password;
@@ -125,7 +115,6 @@ app.post('/api/login', async (req, res) => {
                 success: true, 
                 message: "Đăng nhập thành công",
                 user: userResponse, 
-                username: user.username,
                 serverInfo: system 
             });
         }
@@ -142,11 +131,10 @@ app.post('/api/gacha', async (req, res) => {
         const COST = 100;
         
         const user = await User.findOne({ username });
-        if (!user || user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ điều kiện" });
+        if (!user || user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ xu" });
 
         let system = await System.findOne({ id: 'main' });
         
-        // Logic tính rarity
         const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
         let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
 
@@ -160,12 +148,10 @@ app.post('/api/gacha', async (req, res) => {
             if (rand < cumulative) { rarity = key; break; }
         }
 
-        // Reset pity if EX
         if (rarity === 'EX') system.pityCounter = 0;
         else system.pityCounter += 1;
         system.totalPulls += 1;
 
-        // Lấy template gối từ system hoặc initial
         const allTemplates = system.pillows.length > 0 ? system.pillows : INITIAL_TEMPLATES;
         let validPillows = rarity === 'EX' ? allTemplates.filter(p => p.allowEx) : allTemplates;
         if (validPillows.length === 0) validPillows = allTemplates;
@@ -183,6 +169,8 @@ app.post('/api/gacha', async (req, res) => {
         user.coins -= COST;
         user.inventory.unshift(newItem);
         
+        // Cần markModified vì inventory là Array hỗn hợp
+        user.markModified('inventory');
         await user.save();
         await system.save();
 
