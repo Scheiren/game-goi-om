@@ -1,22 +1,23 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs');
 const path = require('path');
-
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const mongoose = require('mongoose');
 
-// --- CẤU HÌNH DATABASE ---
-//connect database
+// --- 1. KẾT NỐI MONGODB ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('connected to mongodb'))
-    .catch(err => console.error('error connecting to mongodb:', err));
-const DB_FILE = path.join(__dirname, 'database.json');
+    .then(async () => {
+        console.log('✅ Connected to MongoDB');
+        await seedPillows(); // Tự động tạo dữ liệu gối mẫu nếu DB rỗng
+    })
+    .catch(err => console.error('❌ Error connecting to MongoDB:', err));
 
-//user table
+// --- 2. ĐỊNH NGHĨA SCHEMAS (BẢNG DỮ LIỆU) ---
+
+// Bảng User
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     coins: { type: Number, default: 1000 },
@@ -35,15 +36,26 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', UserSchema);
 
-//system table
+// Bảng System (Lưu thông tin server)
 const SystemSchema = new mongoose.Schema({
-    id: { type: String, default: 'main' }, // Luôn là 'main' để dễ tìm
+    id: { type: String, default: 'main' },
     totalPulls: { type: Number, default: 0 },
     pityCounter: { type: Number, default: 0 }
 });
 const System = mongoose.model('System', SystemSchema);
 
-//rarity config
+// Bảng Pillow (Danh sách gối - Để Admin có thể thêm sửa xóa)
+const PillowSchema = new mongoose.Schema({
+    id: { type: Number, unique: true },
+    name: String,
+    imgUrl: String,
+    note: String,
+    allowEx: { type: Boolean, default: false },
+    exQty: { type: Number, default: 0 }
+});
+const Pillow = mongoose.model('Pillow', PillowSchema);
+
+// --- 3. CONFIG & DATA MẪU ---
 const BASE_RARITY_CONFIG = {
     E:   { baseChance: 0.30, value: 10 },
     D:   { baseChance: 0.25, value: 20 },
@@ -56,7 +68,6 @@ const BASE_RARITY_CONFIG = {
     EX:  { baseChance: 0.001, value: 10000 }
 };
 
-//template
 const INITIAL_TEMPLATES = [
     { id: 1, name: "Gối Bông Gòn", imgUrl: "", note: "Cơ bản", allowEx: false, exQty: 0 },
     { id: 2, name: "Gối Len Cũ", imgUrl: "", note: "Cơ bản", allowEx: false, exQty: 0 },
@@ -74,18 +85,28 @@ const INITIAL_TEMPLATES = [
     { id: 14, name: "Giấc Mơ Vũ Trụ", imgUrl: "", note: "Limited Edition", allowEx: true, exQty: 5 },
 ];
 
+// Hàm tự động nạp dữ liệu gối nếu DB chưa có
+async function seedPillows() {
+    const count = await Pillow.countDocuments();
+    if (count === 0) {
+        await Pillow.insertMany(INITIAL_TEMPLATES);
+        console.log('✅ Đã khởi tạo dữ liệu gối mẫu vào MongoDB');
+    }
+}
+
 // --- MIDDLEWARE ---
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
+
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     if (require('fs').existsSync(indexPath)) res.sendFile(indexPath);
     else res.status(404).send('Lỗi: Không tìm thấy file public/index.html');
 });
 
-// 1. login/regs
+// 1. Đăng nhập / Đăng ký
 app.post('/api/login', async (req, res) => {
     try {
         const { username } = req.body;
@@ -93,15 +114,13 @@ app.post('/api/login', async (req, res) => {
 
         let user = await User.findOne({ username });
         if (!user) {
-            // Nếu chưa có user, tạo mới
             const isFirstUser = (await User.countDocuments()) === 0;
             user = await User.create({
                 username,
-                isAdmin: isFirstUser // User đầu tiên là admin
+                isAdmin: isFirstUser
             });
         }
 
-        // Lấy thông tin server
         let system = await System.findOne({ id: 'main' });
         if (!system) system = await System.create({ id: 'main' });
 
@@ -112,7 +131,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-//gacha
+// 2. Gacha (Quay thưởng)
 app.post('/api/gacha', async (req, res) => {
     try {
         const { username } = req.body;
@@ -122,10 +141,8 @@ app.post('/api/gacha', async (req, res) => {
         if (!user) return res.status(404).json({ success: false, message: "User không tồn tại" });
         if (user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ xu" });
 
-        // Trừ tiền
         user.coins -= COST;
 
-        // Cập nhật Pity Server
         let system = await System.findOneAndUpdate(
             { id: 'main' },
             { $inc: { totalPulls: 1, pityCounter: 1 } },
@@ -138,13 +155,11 @@ app.post('/api/gacha', async (req, res) => {
         if (exChance > 0.1) exChance = 0.1;
 
         // Random Rarity
-        const base = { ...BASE_RARITY_CONFIG }; // copy config
-        // (Logic random giữ nguyên như cũ nhưng rút gọn cho dễ đọc)
+        const base = { ...BASE_RARITY_CONFIG };
         let rarity = 'E';
         const rand = Math.random();
         let cumulative = 0;
         
-        // Tạo mapping xác suất tạm thời
         const chances = Object.keys(base).map(key => ({ 
             key, 
             chance: key === 'EX' ? exChance : base[key].baseChance 
@@ -156,19 +171,23 @@ app.post('/api/gacha', async (req, res) => {
         }
 
         if (rarity === 'EX') {
-            // Reset pity nếu ra EX
             await System.updateOne({ id: 'main' }, { pityCounter: 0 });
             system.pityCounter = 0;
         }
 
-        // Chọn gối
-        let validPillows = INITIAL_TEMPLATES;
+        // Lấy danh sách gối từ MongoDB thay vì biến tĩnh
+        const allPillows = await Pillow.find({});
+        let validPillows = allPillows;
+        
         if (rarity === 'EX') {
-            const exList = INITIAL_TEMPLATES.filter(p => p.allowEx);
+            const exList = allPillows.filter(p => p.allowEx);
             if (exList.length > 0) validPillows = exList;
-            else { rarity = 'SSS'; } // Fallback nếu không có gối EX nào
+            else { rarity = 'SSS'; }
         }
         
+        // Fallback nếu không có gối nào trong DB
+        if (validPillows.length === 0) validPillows = INITIAL_TEMPLATES;
+
         const selected = validPillows[Math.floor(Math.random() * validPillows.length)];
 
         const newItem = {
@@ -180,12 +199,10 @@ app.post('/api/gacha', async (req, res) => {
             obtainedAt: Date.now()
         };
 
-        // Lưu vào inventory
         user.inventory.unshift(newItem);
         await user.save();
 
         res.json({ success: true, item: newItem, coins: user.coins, serverInfo: system });
-
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Lỗi gacha' });
@@ -196,7 +213,7 @@ app.post('/api/gacha', async (req, res) => {
 app.post('/api/update-coins', async (req, res) => {
     try {
         const { username, amount } = req.body;
-        const amountNum = Number(amount); // Fix lỗi cộng chuỗi
+        const amountNum = Number(amount);
         if (isNaN(amountNum)) return res.status(400).json({ success: false });
 
         const user = await User.findOneAndUpdate(
@@ -210,69 +227,7 @@ app.post('/api/update-coins', async (req, res) => {
     } catch (e) { console.error(e); res.status(500).json({ success: false }); }
 });
 
-//burn
-app.post('/api/burn', (req, res) => {
-    try {
-        const { username, uniqueId } = req.body;
-        const db = readDB();
-        if (!db.users[username]) return res.status(404).json({ success: false });
-        const idx = (db.users[username].inventory || []).findIndex(i => i.uniqueId === uniqueId);
-        if (idx > -1) {
-            const item = db.users[username].inventory[idx];
-            db.users[username].inventory.splice(idx, 1);
-            writeDB(db);
-            return res.json({ success: true, code: `PIL-${item.id}-${item.rarity}-${uniqueId}` });
-        } else { return res.status(400).json({ success: false }); }
-    } catch(err) { console.error(err); res.status(500).json({ success:false }); }
-});
-
-//exchange
-app.post('/api/exchange', (req, res) => {
-    try {
-        const { username, code } = req.body;
-        if(!code || !code.startsWith('PIL-')) return res.status(400).json({success: false, message: "Code không hợp lệ"});
-        const parts = code.split('-');
-        if(parts.length >= 4) {
-            const tid = parseInt(parts[1]);
-            const rarity = parts[2];
-            const db = readDB();
-            const template = (db.pillows || []).find(t => t.id === tid);
-            if(template && BASE_RARITY_CONFIG[rarity]) {
-                const newItem = {
-                    id: template.id,
-                    name: template.name,
-                    imgUrl: template.imgUrl,
-                    rarity: rarity,
-                    uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
-                    obtainedAt: Date.now()
-                };
-                db.users[username] = db.users[username] || { username, coins: 1000, isAdmin: false, inventory: [], lastCheckIn: null };
-                db.users[username].inventory.unshift(newItem);
-                writeDB(db);
-                return res.json({success: true, item: newItem});
-            }
-        }
-        res.json({success: false, message: "Code lỗi hoặc không tồn tại"});
-    } catch(err) { console.error(err); res.status(500).json({success:false}); }
-});
-
-app.post('/api/claim', (req, res) => {
-    try {
-        const { username, uniqueId, info } = req.body;
-        const db = readDB();
-        if(!db.users[username]) return res.status(404).json({ success: false });
-        const idx = (db.users[username].inventory || []).findIndex(i => i.uniqueId === uniqueId);
-        if(idx > -1) {
-            // remove item and log claim
-            db.users[username].inventory.splice(idx, 1);
-            writeDB(db);
-            console.log(`[CLAIM REQUEST] User: ${username} | ID: ${uniqueId}`, info);
-            return res.json({success: true});
-        } else return res.status(400).json({success:false});
-    } catch(err) { console.error(err); res.status(500).json({success:false}); }
-});
-
-//Check-in
+// 4. Check-in
 app.post('/api/checkin', async (req, res) => {
     try {
         const { username } = req.body;
@@ -282,7 +237,7 @@ app.post('/api/checkin', async (req, res) => {
         const now = Date.now();
         const last = user.lastCheckIn || 0;
 
-        if (now - last > 86400000) { // 24h
+        if (now - last > 86400000) {
             user.coins += 500;
             user.lastCheckIn = now;
             await user.save();
@@ -293,28 +248,118 @@ app.post('/api/checkin', async (req, res) => {
     } catch (err) { console.error(err); res.status(500).json({ success: false }); }
 });
 
-//Lấy danh sách gối (API cũ)
-app.get('/api/pillows', (req, res) => {
-    res.json(INITIAL_TEMPLATES);
+// 5. Burn (Đổi gối lấy code) - Đã sửa sang MongoDB
+app.post('/api/burn', async (req, res) => {
+    try {
+        const { username, uniqueId } = req.body;
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ success: false });
+
+        // Tìm item trong mảng inventory
+        const itemIndex = user.inventory.findIndex(i => i.uniqueId === uniqueId);
+        
+        if (itemIndex > -1) {
+            const item = user.inventory[itemIndex];
+            // Xóa item khỏi mảng
+            user.inventory.splice(itemIndex, 1);
+            await user.save(); // Lưu lại thay đổi vào DB
+
+            // Tạo code (Logic đơn giản, bạn có thể lưu code vào DB nếu cần bảo mật hơn)
+            const code = `PIL-${item.id}-${item.rarity}-${uniqueId}`;
+            return res.json({ success: true, code });
+        } else {
+            return res.status(400).json({ success: false, message: "Vật phẩm không tồn tại" });
+        }
+    } catch(err) { console.error(err); res.status(500).json({ success:false }); }
 });
 
-app.post('/api/admin/pillow', (req, res) => {
+// 6. Exchange (Đổi code lấy gối) - Đã sửa sang MongoDB
+app.post('/api/exchange', async (req, res) => {
+    try {
+        const { username, code } = req.body;
+        if(!code || !code.startsWith('PIL-')) return res.status(400).json({success: false, message: "Code không hợp lệ"});
+        
+        const parts = code.split('-');
+        if(parts.length >= 4) {
+            const tid = parseInt(parts[1]);
+            const rarity = parts[2];
+            
+            // Tìm gối trong DB Pillow
+            const template = await Pillow.findOne({ id: tid });
+            
+            if(template && BASE_RARITY_CONFIG[rarity]) {
+                const newItem = {
+                    id: template.id,
+                    name: template.name,
+                    imgUrl: template.imgUrl,
+                    rarity: rarity,
+                    uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
+                    obtainedAt: Date.now()
+                };
+
+                // Thêm vào inventory User
+                await User.updateOne(
+                    { username },
+                    { $push: { inventory: { $each: [newItem], $position: 0 } } }
+                );
+
+                return res.json({success: true, item: newItem});
+            }
+        }
+        res.json({success: false, message: "Code lỗi hoặc không tồn tại"});
+    } catch(err) { console.error(err); res.status(500).json({success:false}); }
+});
+
+// 7. Claim (Xóa item) - Đã sửa sang MongoDB
+app.post('/api/claim', async (req, res) => {
+    try {
+        const { username, uniqueId, info } = req.body;
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ success: false });
+
+        const idx = user.inventory.findIndex(i => i.uniqueId === uniqueId);
+        if(idx > -1) {
+            user.inventory.splice(idx, 1);
+            await user.save();
+            console.log(`[CLAIM REQUEST] User: ${username} | ID: ${uniqueId}`, info);
+            return res.json({success: true});
+        } else return res.status(400).json({success:false});
+    } catch(err) { console.error(err); res.status(500).json({success:false}); }
+});
+
+// 8. Lấy danh sách gối từ DB
+app.get('/api/pillows', async (req, res) => {
+    try {
+        const pillows = await Pillow.find({}).sort({ id: 1 });
+        res.json(pillows);
+    } catch (err) { res.status(500).json([]); }
+});
+
+// 9. Admin quản lý gối (Thêm/Sửa/Xóa) - Đã sửa sang MongoDB
+app.post('/api/admin/pillow', async (req, res) => {
     try {
         const { pillow, action } = req.body;
-        const db = readDB();
-        db.pillows = db.pillows || [];
+        
         if (action === 'delete') {
-            db.pillows = db.pillows.filter(p => p.id !== pillow.id);
+            await Pillow.findOneAndDelete({ id: pillow.id });
         } else if (action === 'edit') {
-            const idx = db.pillows.findIndex(p => p.id === pillow.id);
-            if (idx !== -1) db.pillows[idx] = { ...db.pillows[idx], ...pillow };
+            await Pillow.findOneAndUpdate({ id: pillow.id }, pillow);
         } else {
-            pillow.id = Number(pillow.id);
-            db.pillows.unshift(pillow);
+            // Add new
+            // Kiểm tra trùng ID
+            const exist = await Pillow.findOne({ id: pillow.id });
+            if (exist) return res.status(400).json({ success: false, message: "ID đã tồn tại" });
+            
+            await Pillow.create({
+                ...pillow,
+                id: Number(pillow.id)
+            });
         }
-        writeDB(db);
         res.json({ success: true });
-    } catch(err) { console.error(err); res.status(500).json({success:false}); }
+    } catch(err) { 
+        console.error(err); 
+        res.status(500).json({success:false, message: err.message}); 
+    }
 });
 
 app.listen(PORT, () => {
