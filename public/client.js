@@ -14,8 +14,8 @@ const BASE_RARITY_CONFIG = {
 };
 
 const RARITY_WEIGHT = {
-    'EX': 100, 'SSS': 90, 'SS': 80, 'S': 70, 
-    'A': 60, 'B': 50, 'C': 40, 'D': 30, 'F': 20
+    'EX': 9, 'SSS': 8, 'SS': 7, 'S': 6, 
+    'A': 5, 'B': 4, 'C': 3, 'D': 2, 'F': 1
 };
 
 const GACHA_COST = 100;
@@ -68,7 +68,6 @@ function cleanupGames() {
 
 function changeSort(mode) {
     state.sortMode = mode;
-    // Gọi lại hàm vẽ giao diện kho đồ
     renderCollection(document.getElementById('main-content'));
 }
 
@@ -304,6 +303,13 @@ function renderCollection(div) {
     else if (state.sortMode === 'rare_high') sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
     else if (state.sortMode === 'rare_low') sortedList.sort((a, b) => (RARITY_WEIGHT[a.rarity] || 0) - (RARITY_WEIGHT[b.rarity] || 0));
 
+    const sortLabels = {
+        'newest': '✨ Mới nhất',
+        'oldest': '🕰️ Cũ nhất',
+        'rare_high': '💎 Hiếm (EX)',
+        'rare_low': '📦 Thường (F)'
+    };
+
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-100">
             <div class="px-4 py-3 border-b bg-white shadow-sm z-10 sticky top-0 flex flex-col gap-2">
@@ -319,21 +325,21 @@ function renderCollection(div) {
                         </button>
 
                         ${!state.isSelectionMode ? `
-                        <div class="relative">
-                            <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 z-10">
-                                <i data-lucide="arrow-up-down" width="14"></i>
+                        <div class="relative group">
+                            <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm group-hover:border-indigo-300 transition-all cursor-pointer">
+                                <i data-lucide="arrow-up-down" width="14" class="text-indigo-500"></i>
+                                <span class="text-xs font-bold text-slate-700 min-w-[70px] text-right truncate">
+                                    ${sortLabels[state.sortMode]}
+                                </span>
+                                <i data-lucide="chevron-down" width="14" class="text-slate-400"></i>
                             </div>
                             
-                            <select onchange="changeSort(this.value)" class="appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl py-2.5 pl-9 pr-8 shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer hover:bg-slate-50 transition w-full">
-                                <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨ Mới nhất</option>
-                                <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️ Cũ nhất</option>
-                                <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎 Hiếm (EX)</option>
-                                <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦 Thường (F)</option>
+                            <select onchange="changeSort(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 rounded-xl outline-none appearance-none">
+                                <option value="newest">Mới nhất</option>
+                                <option value="oldest">Cũ nhất</option>
+                                <option value="rare_high">Hiếm (EX)</option>
+                                <option value="rare_low">Thường (F)</option>
                             </select>
-                            
-                            <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 z-10">
-                                <i data-lucide="chevron-down" width="14"></i>
-                            </div>
                         </div>` : ''}
                     </div>
                 </div>
@@ -342,7 +348,7 @@ function renderCollection(div) {
                 <div class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100 animate-slide-down shadow-inner">
                     <span class="text-xs font-bold text-red-600 ml-1 flex items-center gap-1"><i data-lucide="check-circle" width="14"></i> Chọn: ${state.selectedItems.length}</span>
                     <div class="flex gap-2">
-                        <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition shadow-sm">Tất cả</button>
+                        <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50">Tất cả</button>
                         <button onclick="executeBulkBurn()" class="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-red-700 disabled:opacity-50" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
                             Đốt Ngay
                         </button>
@@ -374,25 +380,28 @@ function renderCollection(div) {
                         <div onclick="${clickAction}" class="relative h-64 rounded-xl cursor-pointer shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col ${wrapperClass}">
                             
                             ${state.isSelectionMode ? `
-                                <div class="absolute top-2 right-2 z-50 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500' : 'bg-white'}">
+                                <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500' : 'bg-white'}">
                                     ${isSelected ? '<i data-lucide="check" width="14" class="text-white"></i>' : ''}
                                 </div>
                             ` : ''}
 
-                            <div class="h-[70%] w-full bg-slate-50 relative overflow-hidden border-b border-slate-100">
+                            <div class="flex-1 w-full bg-slate-50 relative overflow-hidden border-b border-slate-100">
                                 <div class="absolute inset-0 opacity-20 pointer-events-none ${conf.bg}"></div>
+                                
                                 <div class="absolute top-2 left-2 z-20">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase">${item.rarity}</span>
                                 </div>
+
                                 <div class="relative w-full h-full z-10">
                                     ${imgContent}
                                 </div>
                             </div>
 
-                            <div class="h-[30%] w-full flex-none bg-white flex flex-col justify-center items-center px-2 z-20">
-                                <div class="font-bold text-xs md:text-sm text-slate-800 line-clamp-2 text-center leading-tight mb-1" title="${item.name}">${item.name}</div>
+                            <div class="h-16 w-full flex-none bg-white flex flex-col justify-center items-center px-2 z-20">
+                                <div class="font-bold text-xs text-slate-800 line-clamp-2 text-center leading-tight mb-1" title="${item.name}">${item.name}</div>
                                 <div class="text-[9px] text-slate-400 font-mono bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
+                            
                         </div>
                     `;
                 }).join('')}
@@ -1250,5 +1259,6 @@ function logout() {
     setTab('profile');
 
 }
+
 
 
