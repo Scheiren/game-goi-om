@@ -210,7 +210,69 @@ app.post('/api/update-coins', async (req, res) => {
     } catch (e) { console.error(e); res.status(500).json({ success: false }); }
 });
 
-// 4. Check-in
+//burn
+app.post('/api/burn', (req, res) => {
+    try {
+        const { username, uniqueId } = req.body;
+        const db = readDB();
+        if (!db.users[username]) return res.status(404).json({ success: false });
+        const idx = (db.users[username].inventory || []).findIndex(i => i.uniqueId === uniqueId);
+        if (idx > -1) {
+            const item = db.users[username].inventory[idx];
+            db.users[username].inventory.splice(idx, 1);
+            writeDB(db);
+            return res.json({ success: true, code: `PIL-${item.id}-${item.rarity}-${uniqueId}` });
+        } else { return res.status(400).json({ success: false }); }
+    } catch(err) { console.error(err); res.status(500).json({ success:false }); }
+});
+
+//exchange
+app.post('/api/exchange', (req, res) => {
+    try {
+        const { username, code } = req.body;
+        if(!code || !code.startsWith('PIL-')) return res.status(400).json({success: false, message: "Code không hợp lệ"});
+        const parts = code.split('-');
+        if(parts.length >= 4) {
+            const tid = parseInt(parts[1]);
+            const rarity = parts[2];
+            const db = readDB();
+            const template = (db.pillows || []).find(t => t.id === tid);
+            if(template && BASE_RARITY_CONFIG[rarity]) {
+                const newItem = {
+                    id: template.id,
+                    name: template.name,
+                    imgUrl: template.imgUrl,
+                    rarity: rarity,
+                    uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
+                    obtainedAt: Date.now()
+                };
+                db.users[username] = db.users[username] || { username, coins: 1000, isAdmin: false, inventory: [], lastCheckIn: null };
+                db.users[username].inventory.unshift(newItem);
+                writeDB(db);
+                return res.json({success: true, item: newItem});
+            }
+        }
+        res.json({success: false, message: "Code lỗi hoặc không tồn tại"});
+    } catch(err) { console.error(err); res.status(500).json({success:false}); }
+});
+
+app.post('/api/claim', (req, res) => {
+    try {
+        const { username, uniqueId, info } = req.body;
+        const db = readDB();
+        if(!db.users[username]) return res.status(404).json({ success: false });
+        const idx = (db.users[username].inventory || []).findIndex(i => i.uniqueId === uniqueId);
+        if(idx > -1) {
+            // remove item and log claim
+            db.users[username].inventory.splice(idx, 1);
+            writeDB(db);
+            console.log(`[CLAIM REQUEST] User: ${username} | ID: ${uniqueId}`, info);
+            return res.json({success: true});
+        } else return res.status(400).json({success:false});
+    } catch(err) { console.error(err); res.status(500).json({success:false}); }
+});
+
+//Check-in
 app.post('/api/checkin', async (req, res) => {
     try {
         const { username } = req.body;
@@ -231,9 +293,28 @@ app.post('/api/checkin', async (req, res) => {
     } catch (err) { console.error(err); res.status(500).json({ success: false }); }
 });
 
-// 5. Lấy danh sách gối (API cũ)
+//Lấy danh sách gối (API cũ)
 app.get('/api/pillows', (req, res) => {
     res.json(INITIAL_TEMPLATES);
+});
+
+app.post('/api/admin/pillow', (req, res) => {
+    try {
+        const { pillow, action } = req.body;
+        const db = readDB();
+        db.pillows = db.pillows || [];
+        if (action === 'delete') {
+            db.pillows = db.pillows.filter(p => p.id !== pillow.id);
+        } else if (action === 'edit') {
+            const idx = db.pillows.findIndex(p => p.id === pillow.id);
+            if (idx !== -1) db.pillows[idx] = { ...db.pillows[idx], ...pillow };
+        } else {
+            pillow.id = Number(pillow.id);
+            db.pillows.unshift(pillow);
+        }
+        writeDB(db);
+        res.json({ success: true });
+    } catch(err) { console.error(err); res.status(500).json({success:false}); }
 });
 
 app.listen(PORT, () => {
