@@ -14,12 +14,11 @@ const BASE_RARITY_CONFIG = {
 const GACHA_COST = 100;
 let state = {
     username: localStorage.getItem('pgw_user') || 'Guest',
-    // read coins from localStorage if exists, else default 1000 to mimic message.html behavior
     coins: parseInt(localStorage.getItem('pgw_coins')) || 1000,
     inventory: JSON.parse(localStorage.getItem('pgw_inv') || '[]'),
     isAdmin: false,
-    serverInfo: { totalPulls: 0, pityCounter: 0 }, // Thêm info server
-    tab: 'gacha', // default to gacha like message.html
+    serverInfo: { totalPulls: 0, pityCounter: 0 },
+    tab: 'gacha',
     activeGame: null,
     adminTab: 'list', 
     editingPillowId: null
@@ -67,18 +66,15 @@ async function apiCall(endpoint, body) {
 }
 
 async function login(u, p) {
-    // Gọi API với cả username và password
     const res = await apiCall('/api/login', { username: u, password: p });
 
     if (res && res.success) {
-        // Cập nhật State từ dữ liệu Server trả về
         state.username = res.username || (res.user && res.user.username) || u;
         state.coins = (res.user && res.user.coins) !== undefined ? res.user.coins : state.coins;
         state.inventory = (res.user && res.user.inventory) || state.inventory;
         state.isAdmin = !!(res.user && res.user.isAdmin);
         state.serverInfo = res.serverInfo || state.serverInfo;
 
-        // Lưu vào LocalStorage để duy trì phiên đăng nhập khi F5
         localStorage.setItem('pgw_user', state.username);
         localStorage.setItem('pgw_coins', state.coins);
         localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
@@ -92,7 +88,6 @@ async function login(u, p) {
         
         renderApp();
     } else {
-        // QUAN TRỌNG: Hiển thị lỗi cụ thể từ Server (như "Mật khẩu không chính xác")
         const errorMsg = res && res.message ? res.message : 'Đăng nhập thất bại';
         showToast(errorMsg, 'error');
     }
@@ -116,7 +111,6 @@ window.onload = () => {
 
 function setTab(t) {
     cleanupGames();
-    // only prevent access to admin if not admin, allow other tabs for Guest like message.html
     if(t === 'admin' && !state.isAdmin) {
         showToast("Yêu cầu quyền Admin", "error");
         return;
@@ -165,7 +159,6 @@ function renderApp() {
 
 // --- GACHA ---
 function renderGacha(div) {
-    // Tính toán thông số hiển thị
     const pityBonus = Math.floor(state.serverInfo.pityCounter / 200) * 0.001;
     let currentExChance = (0.001 + pityBonus);
     if(currentExChance > 0.1) currentExChance = 0.1;
@@ -207,9 +200,8 @@ async function doGacha() {
     setTimeout(() => {
         if(res.success) {
             state.coins = res.coins;
-            state.serverInfo = res.serverInfo || state.serverInfo; // Update server stats
+            state.serverInfo = res.serverInfo || state.serverInfo;
             state.inventory.unshift(res.item);
-            // persist locally for quick reloads (keeps parity with message.html localStorage)
             localStorage.setItem('pgw_coins', state.coins);
             localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
             playSound('gacha-result');
@@ -454,60 +446,65 @@ function initFlappy(container) {
                     <button id="flappy-btn" class="px-8 py-3 bg-yellow-400 text-black rounded-xl font-black text-xl shadow-lg">CHƠI</button>
                 </div>
             </div>
-            <div class="mt-4 bg-slate-800 px-6 py-2 rounded-full font-black text-xl shadow-inner text-yellow-400 border border-slate-600">Điểm: <span id="flappy-score">0</span></div>
+            <div class="mt-4 flex gap-4">
+                <div class="bg-slate-800 px-6 py-2 rounded-full font-black text-xl shadow-inner text-yellow-400 border border-slate-600">
+                    Điểm: <span id="flappy-score">0</span>
+                </div>
+                <div class="bg-green-800 px-6 py-2 rounded-full font-black text-xl shadow-inner text-white border border-green-600">
+                    +<span id="flappy-earned">0</span> Xu
+                </div>
+            </div>
         </div>
     `;
+
     const cvs = document.getElementById('flappy-cvs');
     const ctx = cvs.getContext('2d');
     const ui = document.getElementById('flappy-ui');
     const btn = document.getElementById('flappy-btn');
     const scoreEl = document.getElementById('flappy-score');
+    const earnedEl = document.getElementById('flappy-earned');
     
     let birdY = 150, velocity = 0, pipes = [], frame = 0, score = 0, playing = false;
+    let activeAnimFrame;
     const gravity = 0.25, jump = -4.5;
     const MAX_SCORE = 100;
-
-    // --- BIẾN ĐỂ KHÓA FPS (MỚI) ---
+    
     let lastTime = 0;
     const FPS = 60;
-    const FRAME_INTERVAL = 1000 / FPS; // Khoảng 16.6ms mỗi frame
+    const FRAME_INTERVAL = 1000 / FPS;
 
     function reset() { 
-        birdY = 150; velocity = 0; pipes = []; frame = 0; score = 0; scoreEl.innerText = 0; 
-        lastTime = performance.now(); // Reset thời gian
+        birdY = 150; velocity = 0; pipes = []; frame = 0; score = 0; 
+        scoreEl.innerText = 0; 
+        earnedEl.innerText = 0;
+        lastTime = performance.now();
     }
     
-    // Sửa hàm loop nhận vào currentTime
     function loop(currentTime) {
         if(!playing) return;
         
-        // Gọi lại loop cho frame tiếp theo
         activeAnimFrame = requestAnimationFrame(loop);
-
         if(!document.getElementById('flappy-cvs')) { playing = false; return; }
 
-        // --- KIỂM TRA FPS (MỚI) ---
-        // Tính thời gian trôi qua từ frame trước
         const deltaTime = currentTime - lastTime;
-
-        // Nếu chưa đủ thời gian cho 1 frame (chưa đến 16.6ms) thì bỏ qua, không vẽ
         if (deltaTime < FRAME_INTERVAL) return;
-
-        // Cập nhật lại thời gian, trừ đi phần dư để chuyển động mượt hơn
         lastTime = currentTime - (deltaTime % FRAME_INTERVAL);
-        // ---------------------------
 
-        // LOGIC GAME (GIỮ NGUYÊN)
         velocity += gravity; birdY += velocity;
         
-        // Tăng frame logic
         frame++;
 
-        if(frame % 100 === 0) pipes.push({ x: cvs.width, gap: 110, top: Math.random() * (cvs.height - 180) + 20 });
+        if(frame % 100 === 0) {
+            pipes.push({ 
+                x: cvs.width, 
+                gap: 110, 
+                top: Math.random() * (cvs.height - 180) + 20,
+                passed: false
+            });
+        }
         
         ctx.fillStyle = '#70c5ce'; ctx.fillRect(0,0,cvs.width,cvs.height);
         
-        // Vẽ chim (đơn giản hóa vẽ text để tránh lag trên máy yếu)
         ctx.font = '30px Arial'; 
         ctx.fillText('🐦', 50, birdY + 25); 
 
@@ -518,39 +515,57 @@ function initFlappy(container) {
             ctx.strokeRect(p.x, 0, 40, p.top);
             ctx.fillRect(p.x, p.top + p.gap, 40, cvs.height - (p.top + p.gap));
             ctx.strokeRect(p.x, p.top + p.gap, 40, cvs.height - (p.top + p.gap));
+
+            if (!p.passed && p.x < 10) {
+                p.passed = true;
+                score++;
+                scoreEl.innerText = score;
+                earnedEl.innerText = score;
+
+                if (typeof state !== 'undefined') {
+                    state.coins += 1;
+                }
+                
+                if (typeof playSound === 'function') playSound('score');
+            }
         });
 
-        if(pipes.length && pipes[0].x < -50) { pipes.shift(); score++; scoreEl.innerText = score; }
+        if(pipes.length && pipes[0].x < -50) { pipes.shift(); }
         
-        if(score >= MAX_SCORE) { endGame(true, 100); return; }
+        if(score >= MAX_SCORE) { endGame(true, score); return; }
 
         let crash = false;
         if(birdY > cvs.height - 30 || birdY < -20) crash = true;
         
-        // Logic va chạm
         pipes.forEach(p => { 
-            // Điều chỉnh hitbox một chút cho chính xác hơn với emoji
             if ((50 + 20 > p.x && 50 + 5 < p.x + 40) && (birdY + 5 < p.top || birdY + 20 > p.top + p.gap)) crash = true; 
         });
         
-        if(crash) { endGame(false, Math.floor(score)); return; }
+        if(crash) { endGame(false, score); return; }
     }
 
     async function endGame(win, earned) {
         playing = false;
-        cancelAnimationFrame(activeAnimFrame); // Dừng vòng lặp hẳn
+        cancelAnimationFrame(activeAnimFrame);
         
         if(earned > 0) {
-            // Giả lập check function apiCall tồn tại để tránh lỗi nếu copy thiếu
             if (typeof apiCall === 'function') {
-                await apiCall('/api/update-coins', {username: state.username, amount: earned});
-                state.coins += earned;
-                showToast(`+${earned} Xu`, 'success');
+                try {
+                    await apiCall('/api/update-coins', {
+                        username: state.username, 
+                        amount: earned
+                    });
+                    showToast(`Kết thúc! Đã lưu +${earned} Xu vào túi.`, 'success');
+                } catch (e) {
+                    showToast('Lỗi mạng! Không lưu được xu.', 'error');
+                    state.coins -= earned;
+                }
             }
         }
+        
         if (typeof playSound === 'function') playSound('gacha-result');
         
-        document.getElementById('flappy-msg').innerHTML = win ? "CHIẾN THẮNG!" : `Game Over! Điểm: ${score}`;
+        document.getElementById('flappy-msg').innerHTML = win ? "CHIẾN THẮNG!" : `Game Over! Tổng: ${score} Xu`;
         btn.innerText = "CHƠI LẠI";
         ui.classList.remove('hidden');
     }
@@ -559,7 +574,6 @@ function initFlappy(container) {
         reset(); 
         playing = true; 
         ui.classList.add('hidden'); 
-        // Bắt đầu loop với requestAnimationFrame
         requestAnimationFrame(loop); 
     };
 
