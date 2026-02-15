@@ -16,7 +16,7 @@ mongoose.connect(process.env.MONGO_URI)
 // --- MODELS ---
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
-    password: { type: String, required: true }, // Thêm trường mật khẩu
+    password: { type: String, required: true },
     coins: { type: Number, default: 1000 },
     isAdmin: { type: Boolean, default: false },
     lastCheckIn: { type: Number, default: 0 },
@@ -28,7 +28,7 @@ const SystemSchema = new mongoose.Schema({
     id: { type: String, default: 'main' },
     totalPulls: { type: Number, default: 0 },
     pityCounter: { type: Number, default: 0 },
-    pillows: { type: Array, default: [] } // Lưu danh sách gối tùy chỉnh của Admin
+    pillows: { type: Array, default: [] }
 });
 const System = mongoose.model('System', SystemSchema);
 
@@ -81,8 +81,12 @@ app.post('/api/login', async (req, res) => {
             });
         }
 
-        if (!username || !password) {
-            return res.status(400).json({ success: false, message: 'Vui lòng nhập đầy đủ' });
+        const passRegex = /^[a-zA-Z0-9_]{3,18}$/;
+        if (!passRegex.test(password)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'mật khẩu không hợp lệ (3-18 ký tự, không chứa ký tự đặc biệt)' 
+            });
         }
 
         if (!username || !password) {
@@ -94,7 +98,6 @@ app.post('/api/login', async (req, res) => {
         if (!system) system = await System.create({ id: 'main', pillows: INITIAL_TEMPLATES });
 
         if (!user) {
-            // ĐĂNG KÝ MỚI
             const hashedPassword = await bcrypt.hash(password, 10);
             const isFirstUser = (await User.countDocuments()) === 0;
             
@@ -105,7 +108,7 @@ app.post('/api/login', async (req, res) => {
             });
 
             const userResponse = user.toObject();
-            delete userResponse.password; // Bảo mật: Xóa pass trước khi gửi về
+            delete userResponse.password;
 
             return res.json({ 
                 success: true, 
@@ -192,7 +195,7 @@ app.post('/api/gacha', async (req, res) => {
     }
 });
 
-//Burn (Hủy gối lấy code) - FIX CHÍNH
+//Burn
 app.post('/api/burn', async (req, res) => {
     try {
         const { username, uniqueId } = req.body;
@@ -215,7 +218,7 @@ app.post('/api/burn', async (req, res) => {
     } catch(err) { res.status(500).json({ success:false }); }
 });
 
-//Exchange (Nhập code lấy gối) - FIX CHÍNH
+//Exchange
 app.post('/api/exchange', async (req, res) => {
     try {
         const { username, code } = req.body;
@@ -249,7 +252,7 @@ app.post('/api/exchange', async (req, res) => {
     } catch(err) { res.status(500).json({ success:false }); }
 });
 
-//
+//Pillows
 app.get('/api/pillows', async (req, res) => {
     try {
         let system = await System.findOne({ id: 'main' });
@@ -265,7 +268,7 @@ app.get('/api/pillows', async (req, res) => {
     }
 });
 
-//Admin Pillow Management - FIX CHÍNH
+//Admin Pillow Management
 app.post('/api/admin/pillow', async (req, res) => {
     try {
         const { pillow, action } = req.body;
@@ -303,7 +306,7 @@ app.post('/api/admin/pillow', async (req, res) => {
     }
 });
 
-//Check-in
+//Checkin
 app.post('/api/checkin', async (req, res) => {
     try {
         const { username } = req.body;
@@ -327,7 +330,7 @@ app.post('/api/update-coins', async (req, res) => {
         const user = await User.findOneAndUpdate(
             { username },
             { $inc: { coins: Number(amount) } },
-            { new: true }
+            { returnDocument: 'after' }
         );
         res.json({ success: !!user, newBalance: user?.coins });
     } catch (e) { res.status(500).json({ success: false }); }

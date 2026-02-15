@@ -1,14 +1,26 @@
 // --- CONFIG & STATE ---
+// const BASE_RARITY_CONFIG = {
+//     E:   { color: 'bg-slate-400', border: 'border-slate-500' },
+//     D:   { color: 'bg-stone-500', border: 'border-stone-600' },
+//     C:   { color: 'bg-green-500', border: 'border-green-600' },
+//     B:   { color: 'bg-blue-500', border: 'border-blue-600' },
+//     A:   { color: 'bg-purple-500', border: 'border-purple-600' },
+//     S:   { color: 'bg-yellow-500', border: 'border-yellow-600' },
+//     SS:  { color: 'bg-orange-500', border: 'border-orange-600' },
+//     SSS: { color: 'bg-red-600', border: 'border-red-700' },
+//     EX:  { color: 'bg-black', border: 'border-white' }
+// };
+
 const BASE_RARITY_CONFIG = {
-    E:   { color: 'bg-slate-400', border: 'border-slate-500' },
-    D:   { color: 'bg-stone-500', border: 'border-stone-600' },
-    C:   { color: 'bg-green-500', border: 'border-green-600' },
-    B:   { color: 'bg-blue-500', border: 'border-blue-600' },
-    A:   { color: 'bg-purple-500', border: 'border-purple-600' },
-    S:   { color: 'bg-yellow-500', border: 'border-yellow-600' },
-    SS:  { color: 'bg-orange-500', border: 'border-orange-600' },
-    SSS: { color: 'bg-red-600', border: 'border-red-700' },
-    EX:  { color: 'bg-black', border: 'border-white' }
+    E:   { bg: 'bg-gradient-to-b from-slate-300 to-slate-400', border: 'border-slate-400', text: 'text-slate-700', shadow: 'shadow-slate-400/50', ring: 'ring-slate-300' },
+    D:   { bg: 'bg-gradient-to-b from-stone-400 to-stone-500', border: 'border-stone-500', text: 'text-stone-800', shadow: 'shadow-stone-500/50', ring: 'ring-stone-400' },
+    C:   { bg: 'bg-gradient-to-b from-green-400 to-green-600', border: 'border-green-500', text: 'text-green-900', shadow: 'shadow-green-500/50', ring: 'ring-green-400' },
+    B:   { bg: 'bg-gradient-to-b from-cyan-400 to-blue-500', border: 'border-blue-400', text: 'text-blue-900', shadow: 'shadow-blue-400/50', ring: 'ring-blue-300' },
+    A:   { bg: 'bg-gradient-to-b from-violet-400 to-purple-600', border: 'border-purple-500', text: 'text-purple-100', shadow: 'shadow-purple-500/50', ring: 'ring-purple-400' },
+    S:   { bg: 'bg-gradient-to-b from-yellow-300 to-orange-500', border: 'border-yellow-400', text: 'text-yellow-900', shadow: 'shadow-yellow-500/50', ring: 'ring-yellow-300' },
+    SS:  { bg: 'bg-gradient-to-b from-orange-400 to-red-600', border: 'border-red-500', text: 'text-white', shadow: 'shadow-red-500/50', ring: 'ring-red-400' },
+    SSS: { bg: 'bg-gradient-to-b from-rose-500 to-pink-700', border: 'border-pink-500', text: 'text-white', shadow: 'shadow-pink-500/50', ring: 'ring-pink-400' },
+    EX:  { bg: 'bg-[conic-gradient(at_top,_var(--tw-gradient-stops))] from-gray-900 via-purple-900 to-violet-900', border: 'border-indigo-400', text: 'text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 to-cyan-200', shadow: 'shadow-indigo-500/80', ring: 'ring-indigo-500' }
 };
 
 const GACHA_COST = 100;
@@ -216,23 +228,51 @@ async function doGacha() {
 
 function renderGachaResult(container, item) {
     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
+    
+    let glowEffect = '';
+    if(['S','SS','SSS','EX'].includes(item.rarity)) {
+        glowEffect = 'animate-pulse shadow-[0_0_50px_rgba(255,215,0,0.6)] border-yellow-300';
+    }
+
     container.innerHTML = `
-        <div class="flex flex-col items-center animate-pop-in w-full max-w-sm px-4">
-            <div class="mb-8 relative w-56 h-80">
-                 <div class="absolute inset-0 bg-yellow-400 blur-2xl opacity-40 animate-pulse"></div>
-                 <div class="relative w-full h-full rounded-2xl shadow-xl border-[3px] ${conf.border} flex flex-col items-center justify-between p-4 bg-white overflow-hidden">
-                    <div class="absolute inset-0 ${conf.color} opacity-10"></div>
-                    <div class="z-10 font-black text-center w-full text-slate-800 text-xl drop-shadow-sm leading-tight">${item.name}</div>
-                    ${item.imgUrl ? `<img src="${item.imgUrl}" class="max-h-32 object-contain z-10 drop-shadow-md">` : `<div class="text-6xl z-10">🧸</div>`}
-                    <div class="z-10 w-full flex flex-col items-center gap-2">
-                        <span class="px-4 py-1.5 rounded-full text-white font-black text-sm shadow-md ${conf.color}">Rank: ${item.rarity}</span>
-                        <span class="text-xs text-slate-500 font-mono bg-white/80 px-2 py-0.5 rounded shadow-sm">#${item.uniqueId}</span>
+        <div class="flex flex-col items-center animate-pop-in w-full px-4 perspective-1000">
+            <div class="relative w-64 h-96 transition-transform hover:rotate-y-12 duration-500 transform-style-3d group">
+                
+                <div class="absolute -inset-4 ${conf.bg} opacity-30 blur-xl rounded-full animate-pulse"></div>
+
+                <div class="relative w-full h-full bg-white rounded-2xl border-[4px] ${conf.border} shadow-2xl overflow-hidden flex flex-col ${glowEffect}">
+                    
+                    <div class="absolute inset-0 ${conf.bg} opacity-10"></div>
+                    <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+
+                    <div class="relative z-10 flex justify-between items-center p-3">
+                         <div class="w-10 h-10 rounded-full ${conf.bg} text-white flex items-center justify-center font-black text-lg shadow-md border-2 border-white">${item.rarity}</div>
+                         <div class="bg-black/5 px-2 py-1 rounded text-[10px] font-mono text-slate-500">#${item.uniqueId}</div>
                     </div>
-                 </div>
+
+                    <div class="flex-1 flex items-center justify-center z-10 p-4 relative">
+                        <div class="absolute w-40 h-40 bg-white/50 rounded-full blur-2xl"></div>
+                        ${item.imgUrl 
+                            ? `<img src="${item.imgUrl}" class="max-h-48 object-contain drop-shadow-xl animate-float">` 
+                            : `<span class="text-8xl animate-bounce">🧸</span>`
+                        }
+                    </div>
+
+                    <div class="relative z-10 bg-white/90 backdrop-blur-sm p-4 text-center border-t border-slate-100">
+                        <h3 class="font-black text-lg text-slate-800 leading-tight mb-1">${item.name}</h3>
+                        <p class="text-xs ${conf.text} font-bold uppercase tracking-wider">Vật phẩm mới!</p>
+                    </div>
+                </div>
             </div>
-            <button onclick="renderApp()" class="w-full max-w-xs py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">
-                Thu Thập & Tiếp Tục
-            </button>
+
+            <div class="mt-8 space-y-3 w-full max-w-xs">
+                <button onclick="renderApp()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition flex items-center justify-center gap-2">
+                    <i data-lucide="check"></i> Thu Thập
+                </button>
+                <button onclick="doGacha()" class="w-full py-3 bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 rounded-xl font-bold active:scale-95 transition flex items-center justify-center gap-2">
+                    <i data-lucide="rotate-cw"></i> Quay Tiếp (100 Xu)
+                </button>
+            </div>
         </div>
     `;
     lucide.createIcons();
@@ -242,43 +282,82 @@ function renderGachaResult(container, item) {
 function renderCollection(div) {
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-50">
-            <div class="p-4 border-b bg-white shadow-sm z-10 sticky top-0"><h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1">TÚI ĐỒ (${state.inventory.length})</h2></div>
-            <div class="flex-1 overflow-y-auto p-4 grid grid-cols-3 md:grid-cols-5 gap-3 no-scrollbar">
-                ${state.inventory.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10">Túi đồ trống. Đi quay Gacha nào!</div>` : ''}
+            <div class="p-4 border-b bg-white shadow-sm z-10 sticky top-0 flex justify-between items-center">
+                <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1">BỘ SƯU TẬP (${state.inventory.length})</h2>
+                <span class="text-xs text-slate-400">Sắp xếp: Mới nhất</span>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 no-scrollbar pb-20">
+                ${state.inventory.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.<br>Đi quay Gacha ngay!</div>` : ''}
                 ${state.inventory.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
+                    const imgContent = item.imgUrl 
+                        ? `<img src="${item.imgUrl}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">` 
+                        : `<span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span>`;
+                        
                     return `
-                        <div onclick="itemDetail('${item.uniqueId}')" class="aspect-[3/4] bg-white border ${conf.border} rounded-xl p-2 flex flex-col items-center justify-between cursor-pointer hover:shadow-md active:scale-95 transition relative overflow-hidden group">
-                            <div class="absolute inset-0 ${conf.color} opacity-10 group-hover:opacity-20 transition"></div>
-                            <span class="text-[10px] md:text-xs font-bold text-center z-10 truncate w-full text-slate-700">${item.name}</span>
-                            <div class="z-10">${item.imgUrl ? `<img src="${item.imgUrl}" class="w-12 h-12 object-contain">` : '🧸'}</div>
-                            <span class="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded z-10 font-mono text-slate-500">${item.rarity}</span>
+                        <div onclick="itemDetail('${item.uniqueId}')" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border}">
+                            <div class="absolute inset-0 opacity-20 group-hover:opacity-30 transition ${conf.bg}"></div>
+                            
+                            <div class="absolute top-2 left-2 z-20">
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
+                            </div>
+
+                            <div class="absolute inset-0 flex items-center justify-center z-10 p-4 pb-12">
+                                ${imgContent}
+                            </div>
+
+                            <div class="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-white via-white/90 to-transparent flex flex-col justify-end p-2 z-20">
+                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-2 text-center mb-0.5 group-hover:text-indigo-600 transition">${item.name}</div>
+                                <div class="text-[9px] text-slate-400 font-mono text-center truncate">#${item.uniqueId}</div>
+                            </div>
+                            
+                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
                         </div>
                     `;
                 }).join('')}
             </div>
         </div>
     `;
+    lucide.createIcons();
 }
 
 function itemDetail(uid) {
     const item = state.inventory.find(i => i.uniqueId === uid);
     if(!item) return;
+    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
+
     const modal = document.createElement('div');
-    modal.className = "fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-pop-in";
+    modal.className = "fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in";
     modal.innerHTML = `
-        <div id="detail-modal-content" class="bg-white rounded-2xl p-6 w-full max-w-sm relative shadow-2xl flex flex-col items-center text-center">
-            <button onclick="this.closest('.fixed').remove()" class="absolute top-2 right-2 p-2 hover:bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
-            <div class="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-4xl shadow-inner">
-                ${item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-full object-contain p-1">` : '🧸'}
+        <div id="detail-modal-content" class="bg-white rounded-3xl w-full max-w-sm relative shadow-2xl overflow-hidden animate-slide-up">
+            <div class="h-24 ${conf.bg} relative">
+                <button onclick="this.closest('.fixed').remove()" class="absolute top-3 right-3 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition"><i data-lucide="x" width="18"></i></button>
             </div>
-            <h3 class="text-xl font-black mb-1 text-slate-800">${item.name}</h3>
-            <span class="px-3 py-1 rounded-full text-white text-xs font-bold mb-4 ${BASE_RARITY_CONFIG[item.rarity].color}">${item.rarity}</span>
-            <p class="font-mono text-xs bg-slate-100 p-2 rounded mb-6 w-full break-all border border-slate-200">ID: ${uid}</p>
-            ${item.rarity === 'EX' ? 
-                `<button onclick="openClaimForm('${uid}')" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><i data-lucide="truck"></i> Nhận Hiện Vật (Claim)</button>` :
-                `<button onclick="burnItem('${uid}')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold flex items-center justify-center gap-2 transition"><i data-lucide="flame" width="18"></i> Đổi Code (Burn)</button>`
-            }
+
+            <div class="px-6 pb-6 -mt-12 relative z-10 text-center">
+                <div class="w-24 h-24 mx-auto bg-white p-1 rounded-2xl shadow-lg border-4 ${conf.border} flex items-center justify-center mb-4 overflow-hidden">
+                     ${item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-full object-cover">` : '<span class="text-4xl">🧸</span>'}
+                </div>
+
+                <h3 class="text-2xl font-black text-slate-800 leading-tight mb-1">${item.name}</h3>
+                
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 mb-4">
+                    <span class="font-black ${conf.text}">${item.rarity}</span>
+                    <span class="w-1 h-1 rounded-full bg-slate-400"></span>
+                    <span class="font-mono text-xs text-slate-500">#${uid}</span>
+                </div>
+
+                <div class="space-y-3 mt-2">
+                     ${item.rarity === 'EX' ? 
+                        `<button onclick="openClaimForm('${uid}')" class="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-200 active:scale-95 transition flex items-center justify-center gap-2">
+                            <i data-lucide="truck"></i> Yêu Cầu Gửi Hàng Thật
+                        </button>` :
+                        `<button onclick="burnItem('${uid}')" class="w-full py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-xl font-bold active:scale-95 transition flex items-center justify-center gap-2">
+                            <i data-lucide="flame"></i> Hủy Vật Phẩm Lấy Code
+                        </button>`
+                    }
+                </div>
+            </div>
         </div>
     `;
     document.body.appendChild(modal);
