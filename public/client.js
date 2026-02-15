@@ -366,11 +366,13 @@ function renderCollection(div) {
 
                 ${state.isSelectionMode ? `
                 <div class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100 animate-slide-down shadow-inner">
-                    <span class="text-xs font-bold text-red-600 ml-1 flex items-center gap-1"><i data-lucide="check-circle" width="14"></i> Chọn: ${state.selectedItems.length}</span>
+                <span class="text-xs font-bold text-red-600 ml-1 flex items-center gap-1">
+                    <i data-lucide="check-circle" width="14"></i> Chọn: ${state.selectedItems.length}
+                </span>
                     <div class="flex gap-2">
                         <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50">Tất cả</button>
-                        <button onclick="executeBulkBurn()" class="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-red-700 disabled:opacity-50" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
-                            Đốt Ngay
+                            <button onclick="executeBulkDelete()" class="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-red-700 disabled:opacity-50" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
+                                Xóa Vĩnh Viễn
                         </button>
                     </div>
                 </div>
@@ -438,41 +440,53 @@ function renderCollection(div) {
 function itemDetail(uid) {
     const item = state.inventory.find(i => i.uniqueId === uid);
     if(!item) return;
-    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
-
     const modal = document.createElement('div');
-    modal.className = "fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in";
+    modal.className = "fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-pop-in";
     modal.innerHTML = `
-        <div id="detail-modal-content" class="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl relative animate-slide-up flex flex-col">
-            <div class="h-24 ${conf.bg} relative w-full">
-                <button onclick="this.closest('.fixed').remove()" class="absolute top-3 right-3 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition z-50 cursor-pointer">
-                    <i data-lucide="x" width="18"></i>
-                </button>
+        <div id="detail-modal-content" class="bg-white rounded-2xl p-6 w-full max-w-sm relative shadow-2xl flex flex-col items-center text-center">
+            <button onclick="this.closest('.fixed').remove()" class="absolute top-2 right-2 p-2 hover:bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
+            <div class="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-4xl shadow-inner">
+                ${item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-full object-contain p-1">` : '🧸'}
             </div>
-            <div class="px-6 pb-8 -mt-12 flex flex-col items-center relative z-10 w-full">
-                <div class="w-24 h-24 bg-white p-1 rounded-2xl shadow-lg border-4 ${conf.border} flex items-center justify-center mb-4 overflow-hidden">
-                     ${item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-full object-cover">` : '<span class="text-4xl">🧸</span>'}
-                </div>
-                <h3 class="text-2xl font-black text-slate-800 leading-tight mb-2 text-center">${item.name}</h3>
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 mb-6">
-                    <span class="font-black ${conf.text}">${item.rarity}</span>
-                    <span class="w-1 h-1 rounded-full bg-slate-400"></span>
-                    <span class="font-mono text-xs text-slate-500">#${uid}</span>
-                </div>
-                <div class="w-full space-y-3">
-                    <button onclick="burnItem('${uid}')" class="w-full py-3.5 bg-gradient-to-r from-red-500 to-orange-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 active:scale-95 transition flex items-center justify-center gap-2 group">
-                        <i data-lucide="flame" class="group-hover:fill-white transition"></i> 
-                        ${item.rarity === 'EX' ? 'ĐỐT SIÊU PHẨM EX' : 'ĐỐT LẤY CODE'}
-                    </button>
-                </div>
-            </div>
+            <h3 class="text-xl font-black mb-1 text-slate-800">${item.name}</h3>
+            <span class="px-3 py-1 rounded-full text-white text-xs font-bold mb-4 ${BASE_RARITY_CONFIG[item.rarity].color}">${item.rarity}</span>
+            <p class="font-mono text-xs bg-slate-100 p-2 rounded mb-6 w-full break-all border border-slate-200">ID: ${uid}</p>
+            
+            ${item.rarity === 'EX' ? 
+                `<button onclick="burnItem('${uid}')" class="w-full py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition active:scale-95">
+                    <i data-lucide="flame"></i> Đổi Mã Nhận Quà (Burn)
+                </button>` :
+                `<button onclick="deleteItem('${uid}')" class="w-full py-3 bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600 rounded-xl font-bold flex items-center justify-center gap-2 transition active:scale-95">
+                    <i data-lucide="trash-2" width="18"></i> Xóa Vật Phẩm
+                </button>`
+            }
         </div>
     `;
     document.body.appendChild(modal);
     lucide.createIcons();
+    window.currentModal = modal;
 }
 
-// --- BURN ---
+// --- BURN & DELETE ---
+
+async function deleteItem(uid) {
+    if(!confirm("Bạn có chắc chắn muốn XÓA vĩnh viễn vật phẩm này? (Hành động này không nhận được mã quà tặng)")) return;
+    
+    // Vẫn gọi API burn để Server xóa item khỏi Inventory trong Database
+    const res = await apiCall('/api/burn', {username: state.username, uniqueId: uid});
+    
+    if(res.success) {
+        // Cập nhật state và giao diện tại chỗ
+        state.inventory = state.inventory.filter(i => i.uniqueId !== uid);
+        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
+        
+        if(window.currentModal) window.currentModal.remove();
+        showToast("Đã xóa vật phẩm khỏi túi đồ", "info");
+        renderCollection(document.getElementById('main-content'));
+    } else {
+        showToast("Lỗi khi xóa vật phẩm", "error");
+    }
+}
 
 async function burnItem(uid) {
     if(!confirm("Bạn chắc chắn muốn ĐỐT vật phẩm này?")) return;
@@ -509,7 +523,7 @@ async function burnItem(uid) {
     }
 }
 
-// --- BURN BATCH ---
+// --- DELETE BATCH ---
 
 function toggleSelectionMode() {
     state.isSelectionMode = !state.isSelectionMode;
@@ -535,14 +549,20 @@ function selectAll() {
     renderCollection(document.getElementById('main-content'));
 }
 
-async function executeBulkBurn() {
-    if (state.selectedItems.length === 0) return;
-    
-    if (!confirm(`CẢNH BÁO: Bạn có chắc muốn đốt ${state.selectedItems.length} vật phẩm này không? Hành động không thể hoàn tác!`)) return;
+async function executeBulkDelete() {
+    const count = state.selectedItems.length;
+    if (count === 0) return;
 
-    const div = document.getElementById('main-content');
-    div.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><i data-lucide="loader-2" class="animate-spin text-red-600 mb-4" width="48"></i><p class="font-bold text-slate-600">Đang thiêu hủy...</p></div>`;
-    lucide.createIcons();
+    const selectedEXItems = state.inventory.filter(item => 
+        state.selectedItems.includes(item.uniqueId) && item.rarity === 'EX'
+    );
+    const hasEX = selectedEXItems.length > 0;
+
+    const confirmMsg = hasEX
+        ? `Bạn đang xóa ${count} vật phẩm, bao gồm ${selectedEXItems.length} siêu phẩm EX. Bạn chắc chắn chứ? (Chỉ EX mới nhận được mã code)`
+        : `Xác nhận xóa vĩnh viễn ${count} vật phẩm đã chọn?`;
+
+    if (!confirm(confirmMsg)) return;
 
     const res = await apiCall('/api/burn-batch', {
         username: state.username,
@@ -550,52 +570,39 @@ async function executeBulkBurn() {
     });
 
     if (res.success) {
-        state.inventory = state.inventory.filter(i => !state.selectedItems.includes(i.uniqueId));
-        state.isSelectionMode = false;
-        state.selectedItems = [];
+        state.inventory = state.inventory.filter(item => !state.selectedItems.includes(item.uniqueId));
+        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
 
-        showBulkBurnResult(res.codes);
-    } else {
-        showToast(res.message || "Lỗi khi đốt vật phẩm", "error");
-        renderCollection(document.getElementById('main-content'));
-    }
-}
-
-function showBulkBurnResult(codes) {
-    const modal = document.createElement('div');
-    modal.className = "fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in";
-    
-    const codesHtml = codes.map(c => `
-        <div class="bg-slate-800 p-3 rounded-lg border border-slate-700 flex justify-between items-center gap-2 group cursor-pointer hover:bg-slate-700" onclick="navigator.clipboard.writeText('${c}'); showToast('Copied!', 'success')">
-            <span class="font-mono text-yellow-400 font-bold text-sm truncate select-all">${c}</span>
-            <i data-lucide="copy" width="14" class="text-slate-500 group-hover:text-white"></i>
-        </div>
-    `).join('');
-
-    modal.innerHTML = `
-        <div class="bg-slate-900 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
-            <div class="p-6 border-b border-slate-800 text-center">
-                <div class="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-                    <i data-lucide="flame" width="32"></i>
-                </div>
-                <h2 class="text-2xl font-black text-white">Đốt Thành Công!</h2>
-                <p class="text-slate-400 text-sm mt-1">Đã nhận được ${codes.length} mã quà tặng.</p>
-            </div>
+        if (hasEX) {
+            const exCodes = res.codes.filter(c => c.includes('-EX-'));
             
-            <div class="flex-1 overflow-y-auto p-4 space-y-2 bg-black/20">
-                ${codesHtml}
-            </div>
+            const modal = document.createElement('div');
+            modal.className = "fixed inset-0 bg-black/80 z-[250] flex items-center justify-center p-4 backdrop-blur-sm";
+            modal.innerHTML = `
+                <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col items-center">
+                    <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4"><i data-lucide="flame"></i></div>
+                    <h2 class="text-xl font-black text-slate-800 mb-2">Đã Xóa & Trả Mã EX</h2>
+                    <p class="text-xs text-slate-500 mb-4 text-center">Các vật phẩm thường đã bị xóa. Đây là mã quà tặng cho các vật phẩm EX của bạn:</p>
+                    <div class="w-full max-h-40 overflow-y-auto space-y-2 mb-6 no-scrollbar">
+                        ${exCodes.map(code => `
+                            <div class="p-2 bg-slate-800 text-white rounded-lg font-mono text-[10px] text-center select-all border border-slate-600">${code}</div>
+                        `).join('')}
+                    </div>
+                    <button onclick="this.closest('.fixed').remove();" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">Xác Nhận</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            lucide.createIcons();
+        } else {
+            showToast(`Đã xóa vĩnh viễn ${count} vật phẩm thành công`, 'info');
+        }
 
-            <div class="p-4 border-t border-slate-800">
-                <button onclick="this.closest('.fixed').remove(); renderCollection(document.getElementById('main-content'))" class="w-full py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">
-                    Xác Nhận & Đóng
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    lucide.createIcons();
-    playSound('gacha-result');
+        state.selectedItems = [];
+        state.isSelectionMode = false;
+        renderCollection(document.getElementById('main-content'));
+    } else {
+        showToast("Lỗi hệ thống khi xóa hàng loạt", "error");
+    }
 }
 
 // --- EXCHANGE TAB ---
@@ -1245,6 +1252,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
