@@ -295,6 +295,7 @@ function renderGachaResult(container, item) {
 
 // --- COLLECTION (KHO ĐỒ) ---
 function renderCollection(div) {
+    // 1. LOGIC SẮP XẾP (Giữ nguyên)
     let sortedList = [...state.inventory]; 
 
     if (state.sortMode === 'newest') {
@@ -307,42 +308,57 @@ function renderCollection(div) {
         sortedList.sort((a, b) => (RARITY_WEIGHT[a.rarity] || 0) - (RARITY_WEIGHT[b.rarity] || 0));
     }
 
+    // 2. RENDER GIAO DIỆN
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-50">
-            <div class="p-4 border-b bg-white shadow-sm z-10 sticky top-0 flex justify-between items-center gap-2">
-                <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1 shrink-0">
+            <div class="px-4 py-3 border-b bg-white shadow-sm z-10 sticky top-0 flex justify-between items-center gap-2">
+                <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1 shrink-0 text-sm md:text-base">
                     KHO ĐỒ (${state.inventory.length})
                 </h2>
-                <div class="flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                    <i data-lucide="arrow-up-down" width="14" class="text-slate-500"></i>
-                    <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[80px] text-right">
-                        <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>Mới nhất</option>
-                        <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>Cũ nhất</option>
-                        <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>Hiếm nhất (EX)</option>
-                        <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>Thường (E)</option>
-                    </select>
+                
+                <div class="relative group">
+                    <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer">
+                        <i data-lucide="arrow-up-down" width="16" class="text-indigo-500"></i>
+                        
+                        <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[90px] text-right z-10">
+                            <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨ Mới nhất</option>
+                            <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️ Cũ nhất</option>
+                            <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎 Hiếm (EX)</option>
+                            <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦 Thường (F)</option>
+                        </select>
+                        
+                        <i data-lucide="chevron-down" width="14" class="text-slate-400 group-hover:text-indigo-500 transition"></i>
+                    </div>
                 </div>
             </div>
+
             <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 no-scrollbar pb-20">
                 ${sortedList.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.<br>Đi quay Gacha ngay!</div>` : ''}
+                
                 ${sortedList.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
                     const imgContent = item.imgUrl 
                         ? `<img src="${item.imgUrl}" class="w-full h-full object-contain drop-shadow-md group-hover:scale-110 transition duration-500">` 
                         : `<span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span>`;
+                        
                     return `
                         <div onclick="itemDetail('${item.uniqueId}')" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col">
+                            
                             <div class="absolute inset-0 opacity-20 group-hover:opacity-30 transition pointer-events-none ${conf.bg}"></div>
+                            
                             <div class="absolute top-2 left-2 z-20">
                                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
                             </div>
-                            <div class="h-[72%] w-full flex items-center justify-center p-3 relative z-10">
+
+                            <div class="flex-1 w-full min-h-0 flex items-center justify-center p-3 relative z-10">
                                 ${imgContent}
                             </div>
-                            <div class="h-[28%] w-full bg-gradient-to-t from-white via-white/90 to-transparent flex flex-col justify-center items-center p-2 z-20 border-t border-white/50 relative">
+
+                            <div class="h-[28%] shrink-0 w-full bg-white/95 flex flex-col justify-center items-center p-2 z-20 border-t border-slate-100 backdrop-blur-sm">
                                 <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 group-hover:text-indigo-600 transition w-full px-1">${item.name}</div>
-                                <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-white/50 px-2 rounded-full border border-slate-100">#${item.uniqueId}</div>
+                                <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-slate-50 px-2 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
+                            
                             ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
                         </div>
                     `;
