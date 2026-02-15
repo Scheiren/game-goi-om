@@ -51,7 +51,7 @@ const BASE_RARITY_CONFIG = {
     B:   { baseChance: 0.12, value: 100 },
     A:   { baseChance: 0.08, value: 250 },
     S:   { baseChance: 0.03, value: 1000 },
-    SS:  { baseChance: 0.015, value: 2500 },
+    SS:  { baseChance: 0.016, value: 2500 },
     SSS: { baseChance: 0.004, value: 5000 },
     EX:  { baseChance: 0.001, value: 10000 }
 };
@@ -128,20 +128,27 @@ app.post('/api/gacha', async (req, res) => {
         const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
         let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
 
+        const RARITY_ORDER = ['EX', 'SSS', 'SS', 'S', 'A', 'B', 'C', 'D', 'F'];
+
         let rarity = 'F';
         const rand = Math.random();
         let cumulative = 0;
-        for (const [key, cfg] of Object.entries(BASE_RARITY_CONFIG)) {
+
+        for (const key of RARITY_ORDER) {
+            const cfg = BASE_RARITY_CONFIG[key];
             const chance = (key === 'EX') ? exChance : cfg.baseChance;
+    
             cumulative += chance;
-            if (rand < cumulative) { rarity = key; break; }
+            if (rand < cumulative) { 
+                rarity = key; 
+                break; 
+            }
         }
 
         const allTemplates = system.pillows.length > 0 ? system.pillows : INITIAL_TEMPLATES;
         
         if (rarity === 'EX') {
             let exPillows = allTemplates.filter(p => p.allowEx && p.exQty > 0);
-            
             if (exPillows.length === 0) {
                 rarity = 'SSS';
             }
@@ -394,6 +401,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
