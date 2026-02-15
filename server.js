@@ -131,6 +131,7 @@ app.post('/api/gacha', async (req, res) => {
         if (rarity === 'EX') {
             let exPillows = allTemplates.filter(p => p.allowEx && p.exQty > 0);
             if (exPillows.length === 0) rarity = 'SSS';
+            system.pityCounter = 0; 
         }
 
         let validPillows = (rarity === 'EX') 
@@ -416,6 +417,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
