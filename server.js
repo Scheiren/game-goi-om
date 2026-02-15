@@ -73,6 +73,18 @@ app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
+        const usernameRegex = /^[a-zA-Z0-9_]{3,15}$/;
+        if (!usernameRegex.test(username)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Tên tài khoản không hợp lệ (3-15 ký tự, không chứa ký tự đặc biệt)' 
+            });
+        }
+
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'Vui lòng nhập đầy đủ' });
+        }
+
         if (!username || !password) {
             return res.status(400).json({ success: false, message: 'Thiếu tài khoản hoặc mật khẩu' });
         }
