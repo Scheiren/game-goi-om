@@ -453,16 +453,49 @@ function initFlappy(container) {
     const gravity = 0.25, jump = -4.5;
     const MAX_SCORE = 100;
 
-    function reset() { birdY = 150; velocity = 0; pipes = []; frame = 0; score = 0; scoreEl.innerText = 0; }
+    // --- BIẾN ĐỂ KHÓA FPS (MỚI) ---
+    let lastTime = 0;
+    const FPS = 60;
+    const FRAME_INTERVAL = 1000 / FPS; // Khoảng 16.6ms mỗi frame
+
+    function reset() { 
+        birdY = 150; velocity = 0; pipes = []; frame = 0; score = 0; scoreEl.innerText = 0; 
+        lastTime = performance.now(); // Reset thời gian
+    }
     
-    function loop() {
+    // Sửa hàm loop nhận vào currentTime
+    function loop(currentTime) {
         if(!playing) return;
+        
+        // Gọi lại loop cho frame tiếp theo
+        activeAnimFrame = requestAnimationFrame(loop);
+
         if(!document.getElementById('flappy-cvs')) { playing = false; return; }
 
+        // --- KIỂM TRA FPS (MỚI) ---
+        // Tính thời gian trôi qua từ frame trước
+        const deltaTime = currentTime - lastTime;
+
+        // Nếu chưa đủ thời gian cho 1 frame (chưa đến 16.6ms) thì bỏ qua, không vẽ
+        if (deltaTime < FRAME_INTERVAL) return;
+
+        // Cập nhật lại thời gian, trừ đi phần dư để chuyển động mượt hơn
+        lastTime = currentTime - (deltaTime % FRAME_INTERVAL);
+        // ---------------------------
+
+        // LOGIC GAME (GIỮ NGUYÊN)
         velocity += gravity; birdY += velocity;
+        
+        // Tăng frame logic
+        frame++;
+
         if(frame % 100 === 0) pipes.push({ x: cvs.width, gap: 110, top: Math.random() * (cvs.height - 180) + 20 });
+        
         ctx.fillStyle = '#70c5ce'; ctx.fillRect(0,0,cvs.width,cvs.height);
-        ctx.font = '30px Arial'; ctx.fillText('🐦', 50, birdY + 25); 
+        
+        // Vẽ chim (đơn giản hóa vẽ text để tránh lag trên máy yếu)
+        ctx.font = '30px Arial'; 
+        ctx.fillText('🐦', 50, birdY + 25); 
 
         pipes.forEach(p => {
             p.x -= 2; 
@@ -479,30 +512,52 @@ function initFlappy(container) {
 
         let crash = false;
         if(birdY > cvs.height - 30 || birdY < -20) crash = true;
-        pipes.forEach(p => { if ((50 + 25 > p.x && 50 < p.x + 40) && (birdY + 5 < p.top || birdY + 25 > p.top + p.gap)) crash = true; });
+        
+        // Logic va chạm
+        pipes.forEach(p => { 
+            // Điều chỉnh hitbox một chút cho chính xác hơn với emoji
+            if ((50 + 20 > p.x && 50 + 5 < p.x + 40) && (birdY + 5 < p.top || birdY + 20 > p.top + p.gap)) crash = true; 
+        });
         
         if(crash) { endGame(false, Math.floor(score/2)); return; }
-
-        frame++; 
-        activeAnimFrame = requestAnimationFrame(loop);
     }
 
     async function endGame(win, earned) {
         playing = false;
+        cancelAnimationFrame(activeAnimFrame); // Dừng vòng lặp hẳn
+        
         if(earned > 0) {
-            await apiCall('/api/update-coins', {username: state.username, amount: earned});
-            state.coins += earned;
-            showToast(`+${earned} Xu`, 'success');
+            // Giả lập check function apiCall tồn tại để tránh lỗi nếu copy thiếu
+            if (typeof apiCall === 'function') {
+                await apiCall('/api/update-coins', {username: state.username, amount: earned});
+                state.coins += earned;
+                showToast(`+${earned} Xu`, 'success');
+            }
         }
-        playSound('gacha-result');
+        if (typeof playSound === 'function') playSound('gacha-result');
+        
         document.getElementById('flappy-msg').innerHTML = win ? "CHIẾN THẮNG!" : `Game Over! Điểm: ${score}`;
         btn.innerText = "CHƠI LẠI";
         ui.classList.remove('hidden');
     }
 
-    btn.onclick = () => { reset(); playing = true; ui.classList.add('hidden'); loop(); };
-    const jumpAction = (e) => { e.preventDefault(); if(playing) velocity = jump; playSound('click'); };
-    cvs.addEventListener('mousedown', jumpAction); cvs.addEventListener('touchstart', jumpAction);
+    btn.onclick = () => { 
+        reset(); 
+        playing = true; 
+        ui.classList.add('hidden'); 
+        // Bắt đầu loop với requestAnimationFrame
+        requestAnimationFrame(loop); 
+    };
+
+    const jumpAction = (e) => { 
+        e.preventDefault(); 
+        if(playing) {
+            velocity = jump; 
+            if (typeof playSound === 'function') playSound('click'); 
+        }
+    };
+    cvs.addEventListener('mousedown', jumpAction); 
+    cvs.addEventListener('touchstart', jumpAction);
 }
 
 // 2. TURBO CLICK
