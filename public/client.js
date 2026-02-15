@@ -48,12 +48,9 @@ function showToast(msg, type='info') {
 }
 
 function cleanupGames() {
-    if (activeInterval) clearInterval(activeInterval);
-    if (activeTimeout) clearTimeout(activeTimeout);
-    if (activeAnimFrame) cancelAnimationFrame(activeAnimFrame);
-    activeInterval = null; 
-    activeTimeout = null; 
-    activeAnimFrame = null;
+    if (activeInterval) { clearInterval(activeInterval); activeInterval = null; }
+    if (activeTimeout) { clearTimeout(activeTimeout); activeTimeout = null; }
+    if (activeAnimFrame) { cancelAnimationFrame(activeAnimFrame); activeAnimFrame = null; }
     state.activeGame = null;
 }
 
@@ -89,18 +86,7 @@ async function login(u, p) {
 
 async function refreshUserData() {
     if(state.username === 'Guest') return;
-    const res = await apiCall('/api/login', { username: state.username });
-    if (res && res.success) {
-        state.coins = res.user.coins;
-        state.inventory = res.user.inventory;
-        state.isAdmin = !!(res.user.isAdmin);
-        state.serverInfo = res.serverInfo;
-        
-        localStorage.setItem('pgw_coins', state.coins);
-        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
-        updateUI();
-        // Không gọi renderApp ở đây để tránh reset màn hình gacha khi đang quay
-    }
+    await login(state.username, ''); 
 }
 
 // --- UI CORE ---
@@ -196,34 +182,30 @@ function renderGacha(div) {
 
 async function doGacha() {
     if(state.coins < GACHA_COST) return showToast("Không đủ xu!", "error");
-    
-    // UI Loading
-    const stage = document.getElementById('gacha-stage');
-    stage.innerHTML = `<div class="w-48 h-64 bg-indigo-600 rounded-xl flex items-center justify-center animate-bounce shadow-2xl"><i data-lucide="gift" width="80" class="text-white"></i></div>`;
-    lucide.createIcons();
-    
     playSound('gacha-roll');
+    
+    const stage = document.getElementById('gacha-stage');
+    stage.innerHTML = `<div class="w-48 h-64 bg-indigo-600 rounded-xl flex items-center justify-center animate-bounce-crazy shadow-2xl"><i data-lucide="gift" width="80" class="text-white"></i></div>`;
+    lucide.createIcons();
 
     const res = await apiCall('/api/gacha', {username: state.username});
     
-    if(res.success) {
-        // Cập nhật state trước khi render kết quả
-        state.coins = res.coins;
-        state.serverInfo = res.serverInfo;
-        state.inventory.unshift(res.item);
-        
-        localStorage.setItem('pgw_coins', state.coins);
-        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
-
-        setTimeout(() => {
+    setTimeout(() => {
+        if(res.success) {
+            state.coins = res.coins;
+            state.serverInfo = res.serverInfo || state.serverInfo; // Update server stats
+            state.inventory.unshift(res.item);
+            // persist locally for quick reloads (keeps parity with message.html localStorage)
+            localStorage.setItem('pgw_coins', state.coins);
+            localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
             playSound('gacha-result');
             renderGachaResult(stage, res.item);
             updateUI();
-        }, 1200);
-    } else {
-        showToast(res.message || "Lỗi Server", "error");
-        renderGacha(document.getElementById('main-content'));
-    }
+        } else {
+            showToast(res.message || "Lỗi Server", "error");
+            renderGacha(document.getElementById('main-content'));
+        }
+    }, 1500);
 }
 
 function renderGachaResult(container, item) {
@@ -659,24 +641,12 @@ function initTaiXiu(container) {
         if(bet <= 0 || bet > state.coins) { showToast("Cược lỗi!", "error"); return; }
         if(!choice) { showToast("Chọn TÀI/XỈU đi!", "error"); return; }
         
-        // --- SỬA: Trừ tiền hiển thị NGAY LẬP TỨC ---
-        state.coins -= bet; 
-        updateUI();
+        await apiCall('/api/update-coins', {username: state.username, amount: -bet});
+        state.coins -= bet; updateUI();
 
-        // Khóa nút ngay để tránh bấm nhiều lần
         document.getElementById('tx-roll').disabled = true;
         [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.add('animate-spin'));
         playSound('gacha-roll');
-
-        // Gọi Server cập nhật
-        const apiRes = await apiCall('/api/update-coins', {username: state.username, amount: -bet});
-        if(!apiRes.success) {
-            state.coins += bet; // Hoàn tiền nếu lỗi
-            updateUI();
-            showToast("Lỗi kết nối!", "error");
-            document.getElementById('tx-roll').disabled = false;
-            return;
-        }
         
         activeTimeout = setTimeout(async () => {
             if (!document.getElementById('tx-sum')) return;
@@ -718,22 +688,11 @@ function initBauCua(container) {
     `;
     window.betBauCua = async (idx) => {
         if(state.coins >= 10) { 
-            state.coins -= 10; 
-            updateUI();
-            
+            await apiCall('/api/update-coins', {username: state.username, amount: -10});
+            state.coins -= 10; updateUI();
             bets[idx] += 10; 
             document.getElementById(`bc-bet-${idx}`).innerText = bets[idx]; 
             playSound('click'); 
-
-            const res = await apiCall('/api/update-coins', {username: state.username, amount: -10});
-            
-            if(!res.success) {
-                state.coins += 10;
-                bets[idx] -= 10;
-                updateUI();
-                document.getElementById(`bc-bet-${idx}`).innerText = bets[idx]; 
-                showToast("Lỗi kết nối, đã hoàn tiền!", "error");
-            }
         } else { showToast("Hết xu!", "error"); }
     };
     window.playBauCua = () => {
@@ -972,5 +931,4 @@ function logout() {
     state.isAdmin = false;
     localStorage.removeItem('pgw_user');
     setTab('profile');
-
 }
