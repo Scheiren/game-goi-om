@@ -83,7 +83,11 @@ async function login(u, p) {
         localStorage.setItem('pgw_coins', state.coins);
         localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
 
-        // Nếu backend trả về message riêng (ví dụ: "Đăng ký thành công"), hãy dùng nó
+        state.username = res.username || (res.user && res.user.username) || u;
+        
+        localStorage.setItem('pgw_user', u);
+        localStorage.setItem('pgw_pass', p);
+
         showToast(res.message || 'Đăng nhập thành công', 'success');
         
         renderApp();
@@ -936,9 +940,32 @@ async function doCheckin() {
     } else { showToast(res.message || "Không thể điểm danh", "error"); }
 }
 
+async function checkAuth() {
+    const savedUser = localStorage.getItem('pgw_user');
+    const savedPass = localStorage.getItem('pgw_pass');
+
+    if (savedUser && savedPass) {
+        console.log("Đang tự động đăng nhập...");
+        await login(savedUser, savedPass);
+    } else {
+        renderApp();
+    }
+}
+
+checkAuth();
+
 function logout() {
-    state.username = 'Guest';
-    state.isAdmin = false;
     localStorage.removeItem('pgw_user');
+    localStorage.removeItem('pgw_pass');
+    localStorage.removeItem('pgw_coins');
+    localStorage.removeItem('pgw_inv');
+    
+    // Reset lại state của ứng dụng
+    state.username = null;
+    state.inventory = [];
+    state.coins = 0;
+    
+    showToast('Đã đăng xuất', 'info');
+    renderApp();
     setTab('profile');
 }
