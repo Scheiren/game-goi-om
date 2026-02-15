@@ -72,7 +72,6 @@ app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        // Kiểm tra đầu vào
         if (!username || !password) {
             return res.status(400).json({ 
                 success: false, 
@@ -83,8 +82,8 @@ app.post('/api/login', async (req, res) => {
         let user = await User.findOne({ username });
 
         if (!user) {
-            // --- LOGIC ĐĂNG KÝ (Nếu user chưa tồn tại) ---
-            const hashedPassword = await bcrypt.hash(password, 10); // Mã hóa mật khẩu
+            // ĐĂNG KÝ MỚI
+            const hashedPassword = await bcrypt.hash(password, 10);
             const isFirstUser = (await User.countDocuments()) === 0;
             
             user = await User.create({ 
@@ -93,16 +92,21 @@ app.post('/api/login', async (req, res) => {
                 isAdmin: isFirstUser 
             });
 
-            // Lấy thông tin server để trả về
             let system = await System.findOne({ id: 'main' });
+            
+            // Chuyển sang object để xóa password trước khi gửi về client
+            const userResponse = user.toObject();
+            delete userResponse.password;
+
             return res.json({ 
                 success: true, 
                 message: "Đăng ký tài khoản mới thành công",
-                user, 
+                user: userResponse, 
+                username: user.username,
                 serverInfo: system 
             });
         } else {
-            // --- LOGIC ĐĂNG NHẬP (Nếu user đã tồn tại) ---
+            // ĐĂNG NHẬP
             const isMatch = await bcrypt.compare(password, user.password);
             
             if (!isMatch) {
@@ -113,16 +117,21 @@ app.post('/api/login', async (req, res) => {
             }
 
             let system = await System.findOne({ id: 'main' });
+
+            const userResponse = user.toObject();
+            delete userResponse.password;
+
             return res.json({ 
                 success: true, 
                 message: "Đăng nhập thành công",
-                user, 
+                user: userResponse, 
+                username: user.username,
                 serverInfo: system 
             });
         }
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, message: 'Lỗi Server' });
+        console.error("Lỗi Login:", err);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống' });
     }
 });
 
