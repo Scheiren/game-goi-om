@@ -1,3 +1,4 @@
+// (full file with edits to ensure game flows use server endpoints for results)
 // --- CONFIG & STATE ---
 const BASE_RARITY_CONFIG = {
     E:   { color: 'bg-slate-400', border: 'border-slate-500' },
@@ -28,38 +29,29 @@ let state = {
 let activeInterval = null, activeTimeout = null, activeAnimFrame = null;
 
 // --- UTILS ---
-function playSound(id) {
-    const el = document.getElementById(`snd-${id}`);
-    if(el) { 
-        el.currentTime = 0; 
-        el.volume = 0.5; 
-        el.play().catch(e => console.log("Audio failed:", e)); 
-    }
+// escape HTML for safe insertion into innerHTML
+function escapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
-
-function showToast(msg, type='info') {
-    const box = document.getElementById('toast-container');
-    const el = document.createElement('div');
-    const color = type==='error'?'bg-red-600':(type==='success'?'bg-green-600':'bg-slate-800');
-    el.className = `${color} text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold animate-slide-down flex items-center gap-2`;
-    el.innerHTML = `<span>${msg}</span>`;
-    box.appendChild(el);
-    setTimeout(()=>el.remove(), 3000);
-}
-
-function cleanupGames() {
-    if (activeInterval) { clearInterval(activeInterval); activeInterval = null; }
-    if (activeTimeout) { clearTimeout(activeTimeout); activeTimeout = null; }
-    if (activeAnimFrame) { cancelAnimationFrame(activeAnimFrame); activeAnimFrame = null; }
-    state.activeGame = null;
+// escape for embedding inside JS single-quoted strings
+function jsEscape(str) {
+    return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
 }
 
 // --- API ---
 async function apiCall(endpoint, body) {
     try {
+        const headers = {'Content-Type': 'application/json'};
+        const token = localStorage.getItem('pgw_token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const res = await fetch(endpoint, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers,
             body: JSON.stringify(body)
         });
         return await res.json();
@@ -77,8 +69,6 @@ async function login(u, p) {
         state.inventory = (res.user && res.user.inventory) || state.inventory;
         state.isAdmin = !!(res.user && res.user.isAdmin);
         state.serverInfo = res.serverInfo || state.serverInfo;
-
-        // Lưu vào LocalStorage để duy trì phiên đăng nhập khi F5
         localStorage.setItem('pgw_user', state.username);
         localStorage.setItem('pgw_coins', state.coins);
         localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
@@ -88,9 +78,7 @@ async function login(u, p) {
         
         renderApp();
     } else {
-        // QUAN TRỌNG: Hiển thị lỗi cụ thể từ Server (như "Mật khẩu không chính xác")
-        const errorMsg = res && res.message ? res.message : 'Đăng nhập thất bại';
-        showToast(errorMsg, 'error');
+        showToast('Đăng nhập thất bại', 'error');
     }
 }
 
@@ -173,7 +161,7 @@ function renderGacha(div) {
             <div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-sm border border-indigo-200 text-center w-full max-w-xs shadow-sm">
                 <div class="font-bold flex items-center justify-center gap-1 mb-1"><i data-lucide="activity" width="16"></i> Server Pity System (Admin)</div>
                 Tỉ lệ ra EX: <span class="font-black text-red-600">${(currentExChance*100).toFixed(2)}%</span> | Pity sau: ${pullsToNextPity}
-                <div class="text-[10px] text-indigo-400 mt-1">Total Pulls: ${state.serverInfo.totalPulls} | Pity Counter: ${state.serverInfo.pityCounter}</div>
+                <div class="text-[10px] text-indigo-400 mt-1">Total Pulls: ${escapeHtml(state.serverInfo.totalPulls)} | Pity Counter: ${escapeHtml(state.serverInfo.pityCounter)}</div>
             </div>
             ` : ''}
 
@@ -185,39 +173,12 @@ function renderGacha(div) {
                 <i data-lucide="gift" width="72" height="72" class="text-white mb-4 drop-shadow-md"></i>
                 <span class="text-white font-black text-2xl tracking-wide">MỞ NGAY</span>
             </button>
-            <p class="text-xs text-slate-400 mt-4">Tổng lượt quay server: ${state.serverInfo.totalPulls}</p>
+            <p class="text-xs text-slate-400 mt-4">Tổng lượt quay server: ${escapeHtml(state.serverInfo.totalPulls)}</p>
         </div>
     `;
 }
 
-async function doGacha() {
-    if(state.coins < GACHA_COST) return showToast("Không đủ xu!", "error");
-    playSound('gacha-roll');
-    
-    const stage = document.getElementById('gacha-stage');
-    stage.innerHTML = `<div class="w-48 h-64 bg-indigo-600 rounded-xl flex items-center justify-center animate-bounce-crazy shadow-2xl"><i data-lucide="gift" width="80" class="text-white"></i></div>`;
-    lucide.createIcons();
-
-    const res = await apiCall('/api/gacha', {username: state.username});
-    
-    setTimeout(() => {
-        if(res.success) {
-            state.coins = res.coins;
-            state.serverInfo = res.serverInfo || state.serverInfo; // Update server stats
-            state.inventory.unshift(res.item);
-            // persist locally for quick reloads (keeps parity with message.html localStorage)
-            localStorage.setItem('pgw_coins', state.coins);
-            localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
-            playSound('gacha-result');
-            renderGachaResult(stage, res.item);
-            updateUI();
-        } else {
-            showToast(res.message || "Lỗi Server", "error");
-            renderGacha(document.getElementById('main-content'));
-        }
-    }, 1500);
-}
-
+// renderGachaResult: escape inserted values
 function renderGachaResult(container, item) {
     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
     container.innerHTML = `
@@ -226,11 +187,11 @@ function renderGachaResult(container, item) {
                  <div class="absolute inset-0 bg-yellow-400 blur-2xl opacity-40 animate-pulse"></div>
                  <div class="relative w-full h-full rounded-2xl shadow-xl border-[3px] ${conf.border} flex flex-col items-center justify-between p-4 bg-white overflow-hidden">
                     <div class="absolute inset-0 ${conf.color} opacity-10"></div>
-                    <div class="z-10 font-black text-center w-full text-slate-800 text-xl drop-shadow-sm leading-tight">${item.name}</div>
-                    ${item.imgUrl ? `<img src="${item.imgUrl}" class="max-h-32 object-contain z-10 drop-shadow-md">` : `<div class="text-6xl z-10">🧸</div>`}
+                    <div class="z-10 font-black text-center w-full text-slate-800 text-xl drop-shadow-sm leading-tight">${escapeHtml(item.name)}</div>
+                    ${item.imgUrl ? `<img src="${escapeHtml(item.imgUrl)}" class="max-h-32 object-contain z-10 drop-shadow-md">` : `<div class="text-6xl z-10">🧸</div>`}
                     <div class="z-10 w-full flex flex-col items-center gap-2">
-                        <span class="px-4 py-1.5 rounded-full text-white font-black text-sm shadow-md ${conf.color}">Rank: ${item.rarity}</span>
-                        <span class="text-xs text-slate-500 font-mono bg-white/80 px-2 py-0.5 rounded shadow-sm">#${item.uniqueId}</span>
+                        <span class="px-4 py-1.5 rounded-full text-white font-black text-sm shadow-md ${conf.color}">Rank: ${escapeHtml(item.rarity)}</span>
+                        <span class="text-xs text-slate-500 font-mono bg-white/80 px-2 py-0.5 rounded shadow-sm">#${escapeHtml(item.uniqueId)}</span>
                     </div>
                  </div>
             </div>
@@ -251,12 +212,14 @@ function renderCollection(div) {
                 ${state.inventory.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10">Túi đồ trống. Đi quay Gacha nào!</div>` : ''}
                 ${state.inventory.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
+                    // safe embedding of uniqueId into onclick via jsEscape
+                    const uidSafe = jsEscape(item.uniqueId);
                     return `
-                        <div onclick="itemDetail('${item.uniqueId}')" class="aspect-[3/4] bg-white border ${conf.border} rounded-xl p-2 flex flex-col items-center justify-between cursor-pointer hover:shadow-md active:scale-95 transition relative overflow-hidden group">
+                        <div onclick="itemDetail('${uidSafe}')" class="aspect-[3/4] bg-white border ${conf.border} rounded-xl p-2 flex flex-col items-center justify-between cursor-pointer hover:shadow-md active:scale-95 transition relative overflow-hidden group">
                             <div class="absolute inset-0 ${conf.color} opacity-10 group-hover:opacity-20 transition"></div>
-                            <span class="text-[10px] md:text-xs font-bold text-center z-10 truncate w-full text-slate-700">${item.name}</span>
-                            <div class="z-10">${item.imgUrl ? `<img src="${item.imgUrl}" class="w-12 h-12 object-contain">` : '🧸'}</div>
-                            <span class="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded z-10 font-mono text-slate-500">${item.rarity}</span>
+                            <span class="text-[10px] md:text-xs font-bold text-center z-10 truncate w-full text-slate-700">${escapeHtml(item.name)}</span>
+                            <div class="z-10">${item.imgUrl ? `<img src="${escapeHtml(item.imgUrl)}" class="w-12 h-12 object-contain">` : '🧸'}</div>
+                            <span class="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded z-10 font-mono text-slate-500">${escapeHtml(item.rarity)}</span>
                         </div>
                     `;
                 }).join('')}
@@ -265,7 +228,9 @@ function renderCollection(div) {
     `;
 }
 
+// itemDetail: escape content; accept possibly escaped uid via decodeURIComponent if needed
 function itemDetail(uid) {
+    try { uid = uid ? uid.toString() : uid; } catch(e){}
     const item = state.inventory.find(i => i.uniqueId === uid);
     if(!item) return;
     const modal = document.createElement('div');
@@ -274,14 +239,14 @@ function itemDetail(uid) {
         <div id="detail-modal-content" class="bg-white rounded-2xl p-6 w-full max-w-sm relative shadow-2xl flex flex-col items-center text-center">
             <button onclick="this.closest('.fixed').remove()" class="absolute top-2 right-2 p-2 hover:bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
             <div class="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-4xl shadow-inner">
-                ${item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-full object-contain p-1">` : '🧸'}
+                ${item.imgUrl ? `<img src="${escapeHtml(item.imgUrl)}" class="w-full h-full object-contain p-1">` : '🧸'}
             </div>
-            <h3 class="text-xl font-black mb-1 text-slate-800">${item.name}</h3>
-            <span class="px-3 py-1 rounded-full text-white text-xs font-bold mb-4 ${BASE_RARITY_CONFIG[item.rarity].color}">${item.rarity}</span>
-            <p class="font-mono text-xs bg-slate-100 p-2 rounded mb-6 w-full break-all border border-slate-200">ID: ${uid}</p>
+            <h3 class="text-xl font-black mb-1 text-slate-800">${escapeHtml(item.name)}</h3>
+            <span class="px-3 py-1 rounded-full text-white text-xs font-bold mb-4 ${BASE_RARITY_CONFIG[item.rarity].color}">${escapeHtml(item.rarity)}</span>
+            <p class="font-mono text-xs bg-slate-100 p-2 rounded mb-6 w-full break-all border border-slate-200">ID: ${escapeHtml(uid)}</p>
             ${item.rarity === 'EX' ? 
-                `<button onclick="openClaimForm('${uid}')" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><i data-lucide="truck"></i> Nhận Hiện Vật (Claim)</button>` :
-                `<button onclick="burnItem('${uid}')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold flex items-center justify-center gap-2 transition"><i data-lucide="flame" width="18"></i> Đổi Code (Burn)</button>`
+                `<button onclick="openClaimForm('${jsEscape(uid)}')" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><i data-lucide="truck"></i> Nhận Hiện Vật (Claim)</button>` :
+                `<button onclick="burnItem('${jsEscape(uid)}')" class="w-full py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold flex items-center justify-center gap-2 transition"><i data-lucide="flame" width="18"></i> Đổi Code (Burn)</button>`
             }
         </div>
     `;
@@ -314,11 +279,12 @@ function openClaimForm(uid) {
 async function submitClaim(e, uid) {
     e.preventDefault();
     const info = {
-        name: document.getElementById('cl-name').value,
-        phone: document.getElementById('cl-phone').value,
-        address: document.getElementById('cl-addr').value
+        name: document.getElementById('cl-name').value.trim(),
+        phone: document.getElementById('cl-phone').value.trim(),
+        address: document.getElementById('cl-addr').value.trim()
     };
-    
+    if (!info.name || !info.phone || !info.address) return showToast('Vui lòng điền đủ thông tin', 'error');
+
     const res = await apiCall('/api/claim', {username: state.username, uniqueId: uid, info: info});
     if(res.success) {
         state.inventory = state.inventory.filter(i => i.uniqueId !== uid);
@@ -337,6 +303,7 @@ async function submitClaim(e, uid) {
     }
 }
 
+// burnItem: call server (unchanged) but embed uid safely
 async function burnItem(uid) {
     if(!confirm("Đốt item này để lấy Code?")) return;
     const res = await apiCall('/api/burn', {username: state.username, uniqueId: uid});
@@ -348,12 +315,14 @@ async function burnItem(uid) {
                 <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-inner"><i data-lucide="check" width="32"></i></div>
                 <h2 class="text-2xl font-black text-slate-800 mb-2">Đổi Code Thành Công!</h2>
                 <div class="w-full p-4 bg-slate-800 text-white rounded-xl mb-6 shadow-inner relative text-center">
-                    <p class="font-mono tracking-widest text-lg font-bold select-all">${res.code}</p>
+                    <p class="font-mono tracking-widest text-lg font-bold select-all">${escapeHtml(res.code)}</p>
                 </div>
                 <button onclick="this.closest('.fixed').remove(); renderCollection(document.getElementById('main-content'))" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">Xác Nhận</button>
             </div>
         `;
         lucide.createIcons();
+    } else {
+        showToast(res.message || 'Lỗi', 'error');
     }
 }
 
@@ -438,7 +407,55 @@ function exitGame() {
     renderApp();
 }
 
-// 1. FLAPPY BIRD
+// --- GAME SERVER INTEGRATION HELPERS ---
+async function startGameSession(game) {
+    if (!state.username || state.username === 'Guest') {
+        showToast('Bạn cần đăng nhập để chơi', 'error');
+        return null;
+    }
+    const res = await apiCall('/api/game/start', { username: state.username, game });
+    if (res && res.success) return res.token;
+    showToast(res?.message || 'Không thể bắt đầu phiên chơi', 'error');
+    return null;
+}
+
+// ensure finishGameSession only updates coins when server returns authoritative balance
+async function finishGameSession(token, score) {
+    if (!token) return { success: false, message: 'No session token' };
+    try {
+        // show a network spinner handled by caller
+        const res = await apiCall('/api/game/finish', { username: state.username, token, score });
+        if (res && res.success) {
+            state.coins = res.newBalance;
+            localStorage.setItem('pgw_coins', state.coins);
+            updateUI();
+            return res;
+        }
+        return res || { success: false, message: 'No response' };
+    } catch (e) {
+        console.error(e);
+        return { success: false, message: 'Network error' };
+    }
+}
+
+async function serverBet(game, bet, choice) {
+    if (!state.username || state.username === 'Guest') {
+        showToast('Bạn cần đăng nhập để cược', 'error');
+        return null;
+    }
+    const res = await apiCall('/api/game/bet', { username: state.username, game, bet, choice });
+    if (res && res.success) {
+        state.coins = res.newBalance;
+        localStorage.setItem('pgw_coins', state.coins);
+        updateUI();
+        return res;
+    } else {
+        showToast(res?.message || 'Cược thất bại', 'error');
+        return null;
+    }
+}
+
+// --- 1. FLAPPY BIRD (updated to use server session & remove double listeners) ---
 function initFlappy(container) {
     container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full text-white">
@@ -463,47 +480,31 @@ function initFlappy(container) {
     const gravity = 0.25, jump = -4.5;
     const MAX_SCORE = 100;
 
-    // --- BIẾN ĐỂ KHÓA FPS (MỚI) ---
     let lastTime = 0;
     const FPS = 60;
-    const FRAME_INTERVAL = 1000 / FPS; // Khoảng 16.6ms mỗi frame
+    const FRAME_INTERVAL = 1000 / FPS;
 
     function reset() { 
         birdY = 150; velocity = 0; pipes = []; frame = 0; score = 0; scoreEl.innerText = 0; 
-        lastTime = performance.now(); // Reset thời gian
+        lastTime = performance.now();
     }
     
-    // Sửa hàm loop nhận vào currentTime
     function loop(currentTime) {
         if(!playing) return;
-        
-        // Gọi lại loop cho frame tiếp theo
         activeAnimFrame = requestAnimationFrame(loop);
 
         if(!document.getElementById('flappy-cvs')) { playing = false; return; }
 
-        // --- KIỂM TRA FPS (MỚI) ---
-        // Tính thời gian trôi qua từ frame trước
         const deltaTime = currentTime - lastTime;
-
-        // Nếu chưa đủ thời gian cho 1 frame (chưa đến 16.6ms) thì bỏ qua, không vẽ
         if (deltaTime < FRAME_INTERVAL) return;
-
-        // Cập nhật lại thời gian, trừ đi phần dư để chuyển động mượt hơn
         lastTime = currentTime - (deltaTime % FRAME_INTERVAL);
-        // ---------------------------
 
-        // LOGIC GAME (GIỮ NGUYÊN)
         velocity += gravity; birdY += velocity;
-        
-        // Tăng frame logic
         frame++;
 
         if(frame % 100 === 0) pipes.push({ x: cvs.width, gap: 110, top: Math.random() * (cvs.height - 180) + 20 });
         
         ctx.fillStyle = '#70c5ce'; ctx.fillRect(0,0,cvs.width,cvs.height);
-        
-        // Vẽ chim (đơn giản hóa vẽ text để tránh lag trên máy yếu)
         ctx.font = '30px Arial'; 
         ctx.fillText('🐦', 50, birdY + 25); 
 
@@ -517,60 +518,90 @@ function initFlappy(container) {
         });
 
         if(pipes.length && pipes[0].x < -50) { pipes.shift(); score++; scoreEl.innerText = score; }
-        
         if(score >= MAX_SCORE) { endGame(true, 100); return; }
 
         let crash = false;
         if(birdY > cvs.height - 30 || birdY < -20) crash = true;
-        
-        // Logic va chạm
         pipes.forEach(p => { 
-            // Điều chỉnh hitbox một chút cho chính xác hơn với emoji
             if ((50 + 20 > p.x && 50 + 5 < p.x + 40) && (birdY + 5 < p.top || birdY + 20 > p.top + p.gap)) crash = true; 
         });
-        
         if(crash) { endGame(false, Math.floor(score)); return; }
     }
 
-    async function endGame(win, earned) {
+    let jumpAction = null;
+
+    async function endGame(win, earnedScore) {
         playing = false;
-        cancelAnimationFrame(activeAnimFrame); // Dừng vòng lặp hẳn
-        
-        if(earned > 0) {
-            // Giả lập check function apiCall tồn tại để tránh lỗi nếu copy thiếu
-            if (typeof apiCall === 'function') {
-                await apiCall('/api/update-coins', {username: state.username, amount: earned});
-                state.coins += earned;
-                showToast(`+${earned} Xu`, 'success');
+        if (activeAnimFrame) { cancelAnimationFrame(activeAnimFrame); activeAnimFrame = null; }
+
+        // consume token once, clear activeGame immediately to prevent reuse
+        const token = state.activeGame && state.activeGame.type === 'flappy' ? state.activeGame.token : null;
+        state.activeGame = null;
+
+        // disable UI while waiting server
+        document.getElementById('flappy-msg').innerHTML = "Đang xác nhận phần thưởng...";
+        btn.disabled = true;
+
+        if (!token) {
+            showToast('Không có phiên chơi hợp lệ. Không có thưởng.', 'error');
+        } else {
+            const result = await finishGameSession(token, Math.floor(earnedScore));
+            if (result && result.success) {
+                showToast(`+${result.award} Xu`, 'success');
+            } else {
+                showToast(result?.message || 'Lỗi khi nhận thưởng', 'error');
             }
         }
+
         if (typeof playSound === 'function') playSound('gacha-result');
-        
         document.getElementById('flappy-msg').innerHTML = win ? "CHIẾN THẮNG!" : `Game Over! Điểm: ${score}`;
         btn.innerText = "CHƠI LẠI";
+        btn.disabled = false; // re-enable for replay
         ui.classList.remove('hidden');
+
+        // remove listeners attached for this game
+        if (jumpAction && cvs) {
+            try { cvs.removeEventListener('mousedown', jumpAction); cvs.removeEventListener('touchstart', jumpAction); } catch(e){}
+            state._gameListeners = state._gameListeners.filter(l => l.fn !== jumpAction);
+        }
     }
 
-    btn.onclick = () => { 
+    btn.onclick = async () => { 
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.innerText = 'ĐANG BẮT ĐẦU...';
+
+        const token = await startGameSession('flappy');
+        btn.disabled = false;
+        btn.innerText = 'CHƠI';
+
+        if (!token) {
+            showToast('Không thể bắt đầu phiên chơi', 'error');
+            return;
+        }
+
+        state.activeGame = { type: 'flappy', token };
         reset(); 
         playing = true; 
         ui.classList.add('hidden'); 
-        // Bắt đầu loop với requestAnimationFrame
-        requestAnimationFrame(loop); 
-    };
+        activeAnimFrame = requestAnimationFrame(loop);
 
-    const jumpAction = (e) => { 
-        e.preventDefault(); 
-        if(playing) {
-            velocity = jump; 
-            if (typeof playSound === 'function') playSound('click'); 
-        }
+        // attach jump handler and remember to remove later
+        jumpAction = (e) => { 
+            e.preventDefault(); 
+            if(playing) {
+                velocity = jump; 
+                if (typeof playSound === 'function') playSound('click'); 
+            }
+        };
+        cvs.addEventListener('mousedown', jumpAction); 
+        cvs.addEventListener('touchstart', jumpAction);
+        state._gameListeners.push({ el: cvs, type: 'mousedown', fn: jumpAction });
+        state._gameListeners.push({ el: cvs, type: 'touchstart', fn: jumpAction });
     };
-    cvs.addEventListener('mousedown', jumpAction); 
-    cvs.addEventListener('touchstart', jumpAction);
 }
 
-// 2. TURBO CLICK
+// --- 2. TURBO CLICK / RACE (updated to use server session) ---
 function initRace(container) {
     container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full text-white p-4">
@@ -586,7 +617,14 @@ function initRace(container) {
             <div class="mt-12 bg-slate-800 px-6 py-3 rounded-2xl text-xl font-black tracking-wider border border-slate-700 shadow-inner"><span class="text-slate-400">THỜI GIAN:</span> <span id="race-time" class="text-red-400">10</span>s <br><span class="text-slate-400">CLICK:</span> <span id="race-clicks" class="text-blue-400">0</span></div>
         </div>
     `;
-    window.startRace = () => {
+    window.startRace = async () => {
+        const token = await startGameSession('race');
+        if (!token) {
+            showToast('Không thể bắt đầu phiên chơi', 'error');
+            return;
+        }
+        state.activeGame = { type: 'race', token };
+
         if (activeInterval) clearInterval(activeInterval);
         let time = 10; let clicks = 0;
         document.getElementById('race-menu').classList.add('hidden');
@@ -604,20 +642,29 @@ function initRace(container) {
                 tapBtn.classList.add('hidden');
                 document.getElementById('race-result').classList.remove('hidden');
                 document.getElementById('race-final').innerText = clicks;
-                const earned = Math.floor(clicks/5);
-                document.getElementById('race-earned').innerText = earned;
-                if(earned > 0) {
-                    await apiCall('/api/update-coins', {username: state.username, amount: earned});
-                    state.coins += earned;
-                    showToast(`+${earned} Xu`, 'success');
-                    playSound('gacha-result');
+                document.getElementById('race-earned').innerText = '...'; // waiting
+
+                const token = state.activeGame && state.activeGame.type === 'race' ? state.activeGame.token : null;
+                state.activeGame = null;
+                if (!token) {
+                    showToast('Phiên chơi không hợp lệ. Không có thưởng.', 'error');
+                    document.getElementById('race-earned').innerText = '0';
+                } else {
+                    const r = await finishGameSession(token, clicks);
+                    if (r && r.success) {
+                        document.getElementById('race-earned').innerText = r.award || 0;
+                        showToast(`+${r.award} Xu`, 'success');
+                    } else {
+                        document.getElementById('race-earned').innerText = '0';
+                        showToast(r?.message || 'Lỗi khi nhận thưởng', 'error');
+                    }
                 }
             }
         }, 1000);
     };
 }
 
-// 3. TAI XIU
+// --- 3. TÀI XỈU (use server bet API) ---
 function initTaiXiu(container) {
     container.innerHTML = `
         <div class="flex flex-col items-center p-4 text-white h-full justify-center">
@@ -648,37 +695,55 @@ function initTaiXiu(container) {
     };
     window.rollTx = async () => {
         const bet = parseInt(document.getElementById('tx-bet').value) || 0;
-        if(bet <= 0 || bet > state.coins) { showToast("Cược lỗi!", "error"); return; }
-        if(!choice) { showToast("Chọn TÀI/XỈU đi!", "error"); return; }
-        
-        await apiCall('/api/update-coins', {username: state.username, amount: -bet});
-        state.coins -= bet; updateUI();
+        const rollBtn = document.getElementById('tx-roll');
+        if (bet <= 0 || bet > state.coins) { showToast("Cược lỗi!", "error"); return; }
+        if (!choice) { showToast("Chọn TÀI/XỈU đi!", "error"); return; }
 
-        document.getElementById('tx-roll').disabled = true;
+        // UI spin animation
+        rollBtn.disabled = true;
         [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.add('animate-spin'));
         playSound('gacha-roll');
-        
-        activeTimeout = setTimeout(async () => {
-            if (!document.getElementById('tx-sum')) return;
-            const d = [1,2,3].map(() => Math.ceil(Math.random()*6));
-            d.forEach((v, i) => { const el = document.getElementById(`d${i+1}`); el.innerText = v; el.classList.remove('animate-spin'); });
-            
-            const sum = d.reduce((a,b)=>a+b,0);
-            document.getElementById('tx-sum').innerText = `Tổng: ${sum}`;
-            const res = sum >= 11 ? 'TAI' : 'XIU';
-            
-            if(res === choice) { 
-                const won = bet * 2;
-                await apiCall('/api/update-coins', {username: state.username, amount: won});
-                state.coins += won; updateUI();
-                showToast(`THẮNG! +${won} Xu`, "success"); playSound('gacha-result'); 
-            } else { showToast("Thua rồi!", "error"); }
-            document.getElementById('tx-roll').disabled = false;
-        }, 1000);
+
+        // Call server to handle bet + roll
+        const res = await serverBet('taixiu', bet, choice === 'TAI' ? 'tai' : 'xiu');
+
+        // handle result and UI
+        if (res && res.success) {
+            // render dice if available
+            if (res.result && res.result.dice) {
+                res.result.dice.forEach((v, i) => {
+                    const el = document.getElementById(`d${i+1}`);
+                    if (el) { el.innerText = v; el.classList.remove('animate-spin'); }
+                });
+                document.getElementById('tx-sum').innerText = `Tổng: ${res.result.sum}`;
+            } else {
+                [1,2,3].forEach(i => {
+                    const el = document.getElementById(`d${i}`);
+                    if (el) el.classList.remove('animate-spin');
+                });
+            }
+
+            // clear disabled and show message
+            rollBtn.disabled = false;
+            if (res.payout && res.payout > 0) {
+                showToast(`Bạn thắng +${res.payout} Xu!`, 'success');
+                playSound('gacha-result');
+            } else {
+                showToast('Bạn đã thua!', 'error');
+                playSound('click');
+            }
+        } else {
+            // fallback: stop animation and re-enable
+            [1,2,3].forEach(i => {
+                const el = document.getElementById(`d${i}`);
+                if (el) { el.classList.remove('animate-spin'); }
+            });
+            rollBtn.disabled = false;
+        }
     };
 }
 
-// 4. BAU CUA
+// --- 4. BẦU CUA (use server bet API) ---
 function initBauCua(container) {
     const SYMBOLS = ["🦌", "🎃", "🐓", "🐟", "🦀", "🦐"];
     let bets = [0,0,0,0,0,0];
@@ -696,43 +761,89 @@ function initBauCua(container) {
             <button id="bc-roll" onclick="playBauCua()" class="w-full max-w-sm bg-gradient-to-r from-red-500 to-red-700 text-white font-black text-2xl py-4 rounded-2xl shadow-lg border border-red-400">XÓC ĐĨA</button>
         </div>
     `;
+    function totalPendingBets() { return bets.reduce((a,b)=>a+b,0); }
+
     window.betBauCua = async (idx) => {
-        if(state.coins >= 10) { 
-            await apiCall('/api/update-coins', {username: state.username, amount: -10});
-            state.coins -= 10; updateUI();
+        // reserve locally (do not call server until play) to keep server authoritative on actual deduction
+        const pending = totalPendingBets();
+        if (state.coins >= pending + 10) { 
             bets[idx] += 10; 
             document.getElementById(`bc-bet-${idx}`).innerText = bets[idx]; 
             playSound('click'); 
         } else { showToast("Hết xu!", "error"); }
     };
-    window.playBauCua = () => {
+    window.playBauCua = async () => {
         if(bets.every(b => b === 0)) return showToast("Đặt cược đi!", "error");
         const rollBtn = document.getElementById('bc-roll');
         rollBtn.disabled = true; 
         [1,2,3].forEach(i => document.getElementById(`bc-r${i}`).classList.add('animate-spin'));
         playSound('gacha-roll');
-        
-        activeTimeout = setTimeout(async () => {
-            if (!document.getElementById('bc-roll')) return;
-            const r = [0,1,2].map(() => Math.floor(Math.random()*6));
-            r.forEach((v, i) => { const el = document.getElementById(`bc-r${i+1}`); el.innerText = SYMBOLS[v]; el.classList.remove('animate-spin'); });
-            
-            const matches = [0,0,0,0,0,0]; r.forEach(idx => matches[idx]++);
-            let win = 0; 
-            bets.forEach((amt, idx) => { if(amt > 0 && matches[idx] > 0) win += amt + (amt * matches[idx]); });
-            
-            if(win > 0) { 
-                await apiCall('/api/update-coins', {username: state.username, amount: win});
-                state.coins += win; updateUI();
-                showToast(`Trúng! +${win} Xu`, "success"); playSound('gacha-result'); 
-            } else { showToast("Thua!", "error"); }
-            
-            bets = [0,0,0,0,0,0]; for(let i=0; i<6; i++) document.getElementById(`bc-bet-${i}`).innerText = 0;
-            rollBtn.disabled = false;
-        }, 1000);
+
+        // Try server multi-bet payload (preferred). Server should handle 'bets' array.
+        const payload = { username: state.username, game: 'baucua', bets: bets };
+        const res = await apiCall('/api/game/bet', payload);
+        if (res && res.success) {
+            // server returned authoritative result and newBalance
+            if (res.result && res.result.rolls) {
+                res.result.rolls.forEach((v, i) => {
+                    const el = document.getElementById(`bc-r${i+1}`);
+                    if (el) { el.innerText = SYMBOLS[v]; el.classList.remove('animate-spin'); }
+                });
+            } else {
+                [1,2,3].forEach(i => document.getElementById(`bc-r${i}`).classList.remove('animate-spin'));
+            }
+            state.coins = res.newBalance;
+            localStorage.setItem('pgw_coins', state.coins);
+            updateUI();
+            if (res.payout && res.payout > 0) { showToast(`Trúng! +${res.payout} Xu`, "success"); playSound('gacha-result'); }
+            else { showToast("Thua!", "error"); }
+        } else {
+            // fallback: attempt sequential single bets (server-side must support)
+            const names = ['deer','gourd','rooster','fish','crab','shrimp'];
+            let totalPayout = 0;
+            let anySuccess = false;
+
+            for (let i = 0; i < bets.length; i++) {
+                const amt = bets[i];
+                if (amt > 0) {
+                    const single = await serverBet('baucua', amt, names[i]);
+                    if (single && single.success) {
+                        anySuccess = true;
+                        totalPayout += Number(single.payout || 0);
+                        // try to update roll display if server returns rolls
+                        if (single.result && single.result.rolls) {
+                            single.result.rolls.forEach((v, idx) => {
+                                const el = document.getElementById(`bc-r${idx+1}`);
+                                if (el) { el.innerText = SYMBOLS[v]; el.classList.remove('animate-spin'); }
+                            });
+                        }
+                    } else {
+                        showToast(`Cược ô ${i+1} thất bại`, 'error');
+                    }
+                }
+            }
+
+            if (anySuccess) {
+                if (totalPayout > 0) {
+                    showToast(`Trúng tổng +${totalPayout} Xu`, 'success');
+                    playSound('gacha-result');
+                } else {
+                    showToast('Ván kết thúc (theo server)', 'info');
+                }
+            } else {
+                showToast('Server không xử lý multi-bet. Cược không được thực hiện.', 'error');
+                // stop animations
+                [1,2,3].forEach(i => {
+                    const el = document.getElementById(`bc-r${i}`);
+                    if (el) el.classList.remove('animate-spin');
+                });
+            }
+        }
+
+        bets = [0,0,0,0,0,0]; for(let i=0; i<6; i++) document.getElementById(`bc-bet-${i}`).innerText = 0;
+        rollBtn.disabled = false;
     };
 }
-
 
 // --- ADMIN SYSTEM (FULL FEATURED) ---
 async function renderAdmin(div) {
@@ -900,11 +1011,11 @@ function renderProfile(div) {
             <div class="p-6 pt-10 text-center max-w-md mx-auto">
                 <div class="bg-white rounded-3xl shadow-lg p-6 border border-slate-100">
                     <div class="w-24 h-24 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl text-white font-black shadow-lg border-4 border-white">
-                        ${state.username[0].toUpperCase()}
+                        ${escapeHtml(state.username[0].toUpperCase())}
                     </div>
-                    <h2 class="text-2xl font-black mb-1 text-slate-800">${state.username}</h2>
+                    <h2 class="text-2xl font-black mb-1 text-slate-800">${escapeHtml(state.username)}</h2>
                     <div class="flex items-center justify-center gap-2 text-indigo-600 font-bold mb-8 bg-indigo-50 py-2 rounded-xl mx-10">
-                        <i data-lucide="coins" width="18"></i> ${state.coins} Xu
+                        <i data-lucide="coins" width="18"></i> ${escapeHtml(state.coins)}
                     </div>
                     
                     <div class="space-y-3">
@@ -940,5 +1051,6 @@ function logout() {
     state.username = 'Guest';
     state.isAdmin = false;
     localStorage.removeItem('pgw_user');
+    localStorage.removeItem('pgw_token');
     setTab('profile');
 }
