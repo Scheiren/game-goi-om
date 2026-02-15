@@ -641,12 +641,24 @@ function initTaiXiu(container) {
         if(bet <= 0 || bet > state.coins) { showToast("Cược lỗi!", "error"); return; }
         if(!choice) { showToast("Chọn TÀI/XỈU đi!", "error"); return; }
         
-        await apiCall('/api/update-coins', {username: state.username, amount: -bet});
-        state.coins -= bet; updateUI();
+        // --- SỬA: Trừ tiền hiển thị NGAY LẬP TỨC ---
+        state.coins -= bet; 
+        updateUI();
 
+        // Khóa nút ngay để tránh bấm nhiều lần
         document.getElementById('tx-roll').disabled = true;
         [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.add('animate-spin'));
         playSound('gacha-roll');
+
+        // Gọi Server cập nhật
+        const apiRes = await apiCall('/api/update-coins', {username: state.username, amount: -bet});
+        if(!apiRes.success) {
+            state.coins += bet; // Hoàn tiền nếu lỗi
+            updateUI();
+            showToast("Lỗi kết nối!", "error");
+            document.getElementById('tx-roll').disabled = false;
+            return;
+        }
         
         activeTimeout = setTimeout(async () => {
             if (!document.getElementById('tx-sum')) return;
@@ -688,11 +700,22 @@ function initBauCua(container) {
     `;
     window.betBauCua = async (idx) => {
         if(state.coins >= 10) { 
-            await apiCall('/api/update-coins', {username: state.username, amount: -10});
-            state.coins -= 10; updateUI();
+            state.coins -= 10; 
+            updateUI();
+            
             bets[idx] += 10; 
             document.getElementById(`bc-bet-${idx}`).innerText = bets[idx]; 
             playSound('click'); 
+
+            const res = await apiCall('/api/update-coins', {username: state.username, amount: -10});
+            
+            if(!res.success) {
+                state.coins += 10;
+                bets[idx] -= 10;
+                updateUI();
+                document.getElementById(`bc-bet-${idx}`).innerText = bets[idx]; 
+                showToast("Lỗi kết nối, đã hoàn tiền!", "error");
+            }
         } else { showToast("Hết xu!", "error"); }
     };
     window.playBauCua = () => {
