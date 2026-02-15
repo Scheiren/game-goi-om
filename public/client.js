@@ -451,16 +451,15 @@ function initFlappy(container) {
     
     let birdY = 150, velocity = 0, pipes = [], frame = 0, score = 0, playing = false;
     const gravity = 0.25, jump = -4.5;
-    const MAX_SCORE = 100;
+    const MAX_SCORE = 367;
 
-    // --- BIẾN ĐỂ KHÓA FPS (MỚI) ---
     let lastTime = 0;
     const FPS = 60;
-    const FRAME_INTERVAL = 1000 / FPS; // Khoảng 16.6ms mỗi frame
+    const FRAME_INTERVAL = 1000 / FPS;
 
     function reset() { 
         birdY = 150; velocity = 0; pipes = []; frame = 0; score = 0; scoreEl.innerText = 0; 
-        lastTime = performance.now(); // Reset thời gian
+        lastTime = performance.now();
     }
     
     // Sửa hàm loop nhận vào currentTime
@@ -472,14 +471,10 @@ function initFlappy(container) {
 
         if(!document.getElementById('flappy-cvs')) { playing = false; return; }
 
-        // --- KIỂM TRA FPS (MỚI) ---
-        // Tính thời gian trôi qua từ frame trước
         const deltaTime = currentTime - lastTime;
 
-        // Nếu chưa đủ thời gian cho 1 frame (chưa đến 16.6ms) thì bỏ qua, không vẽ
         if (deltaTime < FRAME_INTERVAL) return;
 
-        // Cập nhật lại thời gian, trừ đi phần dư để chuyển động mượt hơn
         lastTime = currentTime - (deltaTime % FRAME_INTERVAL);
         // ---------------------------
 
@@ -519,7 +514,7 @@ function initFlappy(container) {
             if ((50 + 20 > p.x && 50 + 5 < p.x + 40) && (birdY + 5 < p.top || birdY + 20 > p.top + p.gap)) crash = true; 
         });
         
-        if(crash) { endGame(false, Math.floor(score/2)); return; }
+        if(crash) { endGame(false, Math.floor(score)); return; }
     }
 
     async function endGame(win, earned) {
@@ -931,4 +926,5 @@ function logout() {
     state.isAdmin = false;
     localStorage.removeItem('pgw_user');
     setTab('profile');
+
 }
