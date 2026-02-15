@@ -33,7 +33,7 @@ let state = {
     sortMode: 'newest',
     isSelectionMode: false,
     selectedItems: [],
-    currentCode: null,      // Lưu mã hiện tại (ví dụ: "GIFT-123")
+    currentCode: null,
     isCodeRedeemed: false
 };
 
@@ -1252,6 +1252,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
