@@ -33,12 +33,12 @@ const SystemSchema = new mongoose.Schema({
 const System = mongoose.model('System', SystemSchema);
 
 const GiftCodeSchema = new mongoose.Schema({
-    code: { type: String, required: true, unique: true }, // Mã code
-    itemTemplateId: { type: Number, required: true },     // ID loại gối
-    rarity: { type: String, required: true },             // Độ hiếm
-    isUsed: { type: Boolean, default: false },            // Trạng thái đã dùng
-    generatedBy: String,                                  // Người tạo (người đốt)
-    usedBy: { type: String, default: null },              // Người nhập
+    code: { type: String, required: true, unique: true },
+    itemTemplateId: { type: Number, required: true },
+    rarity: { type: String, required: true },
+    isUsed: { type: Boolean, default: false },
+    generatedBy: String,
+    usedBy: { type: String, default: null },
     createdAt: { type: Number, default: Date.now }
 });
 const GiftCode = mongoose.model('GiftCode', GiftCodeSchema);
@@ -56,7 +56,6 @@ const BASE_RARITY_CONFIG = {
     EX:  { baseChance: 0.001, value: 10000 }
 };
 
-// Dữ liệu mẫu ban đầu
 const INITIAL_TEMPLATES = [
     { id: 1, name: "Gối Bông Gòn", imgUrl: "", note: "Cơ bản", allowEx: false, exQty: 0 },
     { id: 2, name: "Gối Len Cũ", imgUrl: "", note: "Cơ bản", allowEx: false, exQty: 0 },
@@ -109,7 +108,7 @@ app.post('/api/gacha', async (req, res) => {
     try {
         const { username } = req.body;
         const COST = 100;
-        const MAX_INVENTORY = 200; // Giới hạn túi đồ 200 món
+        const MAX_INVENTORY = 200;
 
         const user = await User.findOne({ username });
         if (!user) return res.status(404).json({ success: false, message: "Người dùng không tồn tại" });
@@ -152,6 +151,7 @@ app.post('/api/gacha', async (req, res) => {
             if (exPillows.length === 0) {
                 rarity = 'SSS';
             }
+            system.pityCounter = 0;
         }
 
         let validPillows = (rarity === 'EX') 
@@ -168,7 +168,6 @@ app.post('/api/gacha', async (req, res) => {
                 system.pillows[templateIdx].exQty -= 1;
                 system.markModified('pillows');
             }
-            system.pityCounter = 0;
         } else {
             system.pityCounter += 1;
         }
@@ -401,6 +400,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
