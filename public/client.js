@@ -22,7 +22,7 @@ const GACHA_COST = 100;
 
 let state = {
     username: localStorage.getItem('pgw_user') || 'Guest',
-    coins: parseInt(localStorage.getItem('pgw_coins')) || 100,
+    coins: parseInt(localStorage.getItem('pgw_coins')) || 1000,
     inventory: JSON.parse(localStorage.getItem('pgw_inv') || '[]'),
     isAdmin: false,
     serverInfo: { totalPulls: 0, pityCounter: 0 },
@@ -1245,6 +1245,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
