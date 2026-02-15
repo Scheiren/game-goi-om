@@ -299,7 +299,6 @@ function renderGachaResult(container, item) {
 function renderCollection(div) {
     let sortedList = [...state.inventory]; 
 
-    // Logic sắp xếp (Giữ nguyên)
     if (state.sortMode === 'newest') sortedList.sort((a, b) => (b.obtainedAt || 0) - (a.obtainedAt || 0));
     else if (state.sortMode === 'oldest') sortedList.sort((a, b) => (a.obtainedAt || 0) - (b.obtainedAt || 0));
     else if (state.sortMode === 'rare_high') sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
@@ -314,23 +313,23 @@ function renderCollection(div) {
                     </h2>
                     
                     <div class="flex gap-2">
-                        <button onclick="toggleSelectionMode()" class="px-3 py-2 rounded-xl border font-bold text-xs flex items-center gap-1 transition shadow-sm ${state.isSelectionMode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-indigo-200'}">
+                        <button onclick="toggleSelectionMode()" class="px-3 py-2 rounded-xl border font-bold text-xs flex items-center gap-1 transition shadow-sm whitespace-nowrap ${state.isSelectionMode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-indigo-200'}">
                             <i data-lucide="${state.isSelectionMode ? 'x' : 'check-square'}" width="16"></i>
                             ${state.isSelectionMode ? 'Hủy' : 'Chọn'}
                         </button>
 
                         ${!state.isSelectionMode ? `
-                        <div class="relative group">
-                            <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer">
-                                <i data-lucide="arrow-up-down" width="16" class="text-indigo-500"></i>
-                                <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[85px] text-right z-10">
-                                    <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨ Mới nhất</option>
-                                    <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️ Cũ nhất</option>
-                                    <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎 Hiếm (EX)</option>
-                                    <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦 Thường (F)</option>
-                                </select>
-                                <i data-lucide="chevron-down" width="14" class="text-slate-400 group-hover:text-indigo-500 transition"></i>
-                            </div>
+                        <div class="relative">
+                            <i data-lucide="arrow-up-down" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500 pointer-events-none z-10"></i>
+                            
+                            <select onchange="changeSort(this.value)" class="appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl py-2 pl-9 pr-8 shadow-sm focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition">
+                                <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>Mới nhất</option>
+                                <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>Cũ nhất</option>
+                                <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>Hiếm (EX)</option>
+                                <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>Thường (F)</option>
+                            </select>
+                            
+                            <i data-lucide="chevron-down" class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10"></i>
                         </div>` : ''}
                     </div>
                 </div>
@@ -339,8 +338,8 @@ function renderCollection(div) {
                 <div class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100 animate-slide-down shadow-inner">
                     <span class="text-xs font-bold text-red-600 ml-1 flex items-center gap-1"><i data-lucide="check-circle" width="14"></i> Đã chọn: ${state.selectedItems.length}</span>
                     <div class="flex gap-2">
-                        <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition shadow-sm">Tất cả</button>
-                        <button onclick="executeBulkBurn()" class="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
+                        <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition shadow-sm whitespace-nowrap">Tất cả</button>
+                        <button onclick="executeBulkBurn()" class="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1 whitespace-nowrap" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
                             <i data-lucide="flame" width="14"></i> Đốt Ngay
                         </button>
                     </div>
@@ -354,10 +353,9 @@ function renderCollection(div) {
                 ${sortedList.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
                     
-                    // Nội dung ảnh (Đã bỏ các class gây xung đột, chỉ giữ lại class cơ bản)
                     const imgContent = item.imgUrl 
-                        ? `<img src="${item.imgUrl}" class="w-full h-full object-contain p-2 transition duration-500 hover:scale-110">` 
-                        : `<span class="text-5xl hover:scale-125 transition duration-300 cursor-default">🧸</span>`;
+                        ? `<img src="${item.imgUrl}" class="w-full h-full object-contain p-2 drop-shadow-md group-hover:scale-110 transition duration-500">` 
+                        : `<span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span>`;
                     
                     const isSelected = state.selectedItems.includes(item.uniqueId);
                     const selectionClass = state.isSelectionMode 
@@ -369,39 +367,38 @@ function renderCollection(div) {
                         : `itemDetail('${item.uniqueId}')`;
 
                     return `
-                        <div onclick="${clickAction}" class="group relative aspect-[3/4] rounded-xl shadow-sm hover:shadow-xl transition-all duration-200 bg-white border-2 ${conf.border} overflow-hidden ${selectionClass}">
+                        <div onclick="${clickAction}" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col ${selectionClass}">
                             
                             ${state.isSelectionMode ? `
-                                <div class="absolute top-2 right-2 z-50 w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500 scale-110' : 'bg-slate-200'}">
+                                <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500 scale-110' : 'bg-slate-200'}">
                                     ${isSelected ? '<i data-lucide="check" width="14" class="text-white stroke-[3px]"></i>' : ''}
                                 </div>
                             ` : ''}
 
-                            <div class="absolute top-0 left-0 right-0 h-[72%] bg-slate-50/50 flex items-center justify-center overflow-hidden z-10">
-                                <div class="absolute inset-0 opacity-20 pointer-events-none ${conf.bg}"></div>
-                                
-                                <div class="absolute top-2 left-2 z-20">
-                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
-                                </div>
-
-                                <div class="w-full h-full flex items-center justify-center relative z-10">
-                                    ${imgContent}
-                                </div>
+                            <div class="absolute inset-0 opacity-20 transition pointer-events-none ${conf.bg}"></div>
+                            
+                            <div class="absolute top-2 left-2 z-20">
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
                             </div>
 
-                            <div class="absolute bottom-0 left-0 right-0 h-[28%] bg-white border-t border-slate-100 flex flex-col justify-center items-center px-2 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 w-full" title="${item.name}">${item.name}</div>
-                                <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-slate-100 px-2 rounded-full border border-slate-200">#${item.uniqueId}</div>
+                            <div class="absolute top-0 left-0 right-0 h-[72%] flex items-center justify-center overflow-hidden z-10">
+                                ${imgContent}
+                            </div>
+
+                            <div class="absolute bottom-0 left-0 right-0 h-[28%] bg-white/95 flex flex-col justify-center items-center px-2 z-20 border-t border-slate-100 backdrop-blur-sm">
+                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 w-full px-1" title="${item.name}">${item.name}</div>
+                                <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-slate-50 px-2 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
                             
-                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-40 pointer-events-none"></div>` : ''}
+                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
                         </div>
                     `;
                 }).join('')}
             </div>
         </div>
     `;
-    lucide.createIcons();
+    
+    if(window.lucide) lucide.createIcons();
 }
 
 function itemDetail(uid) {
@@ -1249,5 +1246,4 @@ function logout() {
     showToast('Đã đăng xuất', 'info');
     renderApp();
     setTab('profile');
-
 }
