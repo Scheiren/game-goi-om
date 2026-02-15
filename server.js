@@ -17,7 +17,7 @@ mongoose.connect(process.env.MONGO_URI)
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    coins: { type: Number, default: 1236 },
+    coins: { type: Number, default: 100 },
     isAdmin: { type: Boolean, default: false },
     lastCheckIn: { type: Number, default: 0 },
     inventory: { type: Array, default: [] }
@@ -349,5 +349,6 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
