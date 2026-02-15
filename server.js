@@ -17,7 +17,7 @@ mongoose.connect(process.env.MONGO_URI)
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    coins: { type: Number, default: 1000 },
+    coins: { type: Number, default: 1236 },
     isAdmin: { type: Boolean, default: false },
     lastCheckIn: { type: Number, default: 0 },
     inventory: { type: Array, default: [] }
@@ -154,7 +154,7 @@ app.post('/api/gacha', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-// 3. BURN (Đốt 1 item) - [ĐÃ CẬP NHẬT: Lưu Code vào DB]
+// 3. BURN
 app.post('/api/burn', async (req, res) => {
     try {
         const { username, uniqueId } = req.body;
@@ -165,12 +165,10 @@ app.post('/api/burn', async (req, res) => {
         if (idx > -1) {
             const item = user.inventory[idx];
             
-            // Tạo mã code ngẫu nhiên và phức tạp
             const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
             const timestamp = Date.now().toString().slice(-4);
             const codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${timestamp}`;
 
-            // Lưu code vào DB
             await GiftCode.create({
                 code: codeStr,
                 itemTemplateId: item.id,
@@ -179,7 +177,6 @@ app.post('/api/burn', async (req, res) => {
                 generatedBy: username
             });
 
-            // Xóa item khỏi túi
             user.inventory.splice(idx, 1); 
             user.markModified('inventory');
             await user.save();
@@ -190,7 +187,7 @@ app.post('/api/burn', async (req, res) => {
     } catch(err) { res.status(500).json({ success:false }); }
 });
 
-// 4. BURN BATCH (Đốt nhiều) - [ĐÃ CẬP NHẬT: Lưu nhiều Code]
+//BURN BATCH
 app.post('/api/burn-batch', async (req, res) => {
     try {
         const { username, uniqueIds } = req.body; 
@@ -220,10 +217,8 @@ app.post('/api/burn-batch', async (req, res) => {
             });
         });
 
-        // Lưu tất cả code vào DB 1 lần (Batch insert)
         await GiftCode.insertMany(giftCodeDocs);
 
-        // Xóa item khỏi inventory
         user.inventory = user.inventory.filter(i => !uniqueIds.includes(i.uniqueId));
         user.markModified('inventory');
         await user.save();
@@ -235,43 +230,37 @@ app.post('/api/burn-batch', async (req, res) => {
     }
 });
 
-// 5. EXCHANGE (Nhập code) - [ĐÃ CẬP NHẬT: Check DB chống dùng lại]
+// 5. EXCHANGE
 app.post('/api/exchange', async (req, res) => {
     try {
         const { username, code } = req.body;
         if(!code) return res.status(400).json({success: false, message: "Vui lòng nhập code"});
         
-        // Tìm code trong DB
         const giftCode = await GiftCode.findOne({ code: code.trim() });
 
-        // Kiểm tra tồn tại
         if (!giftCode) {
             return res.json({ success: false, message: "Mã quà tặng không tồn tại!" });
         }
 
-        // Kiểm tra đã dùng chưa
         if (giftCode.isUsed) {
             return res.json({ success: false, message: "Mã này đã được sử dụng rồi!" });
         }
 
-        // Lấy thông tin template vật phẩm
         const system = await System.findOne({ id: 'main' });
         const allTemplates = system.pillows.length > 0 ? system.pillows : INITIAL_TEMPLATES;
         const template = allTemplates.find(t => t.id === giftCode.itemTemplateId);
 
         if (!template) return res.json({ success: false, message: "Loại vật phẩm này đã bị xóa khỏi hệ thống." });
 
-        // Tạo item mới cho người nhận
         const newItem = {
             id: template.id,
             name: template.name,
             imgUrl: template.imgUrl,
-            rarity: giftCode.rarity, // Giữ nguyên độ hiếm của code
+            rarity: giftCode.rarity,
             uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
             obtainedAt: Date.now()
         };
 
-        // Cập nhật User
         await User.findOneAndUpdate(
             { username },
             { $push: { inventory: { $each: [newItem], $position: 0 } } }
@@ -289,7 +278,6 @@ app.post('/api/exchange', async (req, res) => {
     }
 });
 
-// Các API phụ khác (Giữ nguyên logic)
 app.get('/api/pillows', async (req, res) => {
     try {
         let system = await System.findOne({ id: 'main' });
@@ -361,4 +349,5 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
