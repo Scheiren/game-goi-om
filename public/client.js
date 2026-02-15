@@ -465,69 +465,19 @@ function itemDetail(uid) {
                     <span class="font-mono text-xs text-slate-500">#${uid}</span>
                 </div>
                 <div class="w-full space-y-3">
-                     ${item.rarity === 'EX' ? 
-                        `<button onclick="openClaimForm('${uid}')" class="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-200 active:scale-95 transition flex items-center justify-center gap-2">
-                            <i data-lucide="truck"></i> Yêu Cầu Gửi Hàng Thật
-                        </button>` :
-                        `<button onclick="burnItem('${uid}')" class="w-full py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-xl font-bold active:scale-95 transition flex items-center justify-center gap-2 group">
-                            <i data-lucide="flame" class="group-hover:text-red-600 group-hover:fill-red-600 transition"></i> Đốt Lấy Code (Exchange)
-                        </button>`
-                    }
+                    <button onclick="burnItem('${uid}')" class="w-full py-3.5 bg-gradient-to-r from-red-500 to-orange-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 active:scale-95 transition flex items-center justify-center gap-2 group">
+                        <i data-lucide="flame" class="group-hover:fill-white transition"></i> 
+                        ${item.rarity === 'EX' ? 'ĐỐT SIÊU PHẨM EX' : 'ĐỐT LẤY CODE'}
+                    </button>
                 </div>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
     lucide.createIcons();
-    window.currentModal = modal;
 }
 
-// --- CLAIM & BURN ---
-function openClaimForm(uid) {
-    const content = document.getElementById('detail-modal-content');
-    content.innerHTML = `
-        <div class="flex flex-col w-full text-left p-6">
-            <h2 class="text-2xl font-black text-slate-800 mb-2 flex items-center gap-2"><i data-lucide="truck" class="text-orange-500"></i> Nhận Hiện Vật</h2>
-            <p class="text-sm text-slate-500 mb-6">Điền thông tin chính xác để Admin gửi gối EX về tận giường cho bạn.</p>
-            <form id="claim-form" class="space-y-4" onsubmit="submitClaim(event, '${uid}')">
-                <input id="cl-name" type="text" required class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Họ và Tên">
-                <input id="cl-phone" type="tel" required class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Số điện thoại">
-                <textarea id="cl-addr" required rows="3" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Địa chỉ giao hàng..."></textarea>
-                <div class="flex gap-2">
-                    <button type="button" onclick="this.closest('.fixed').remove()" class="flex-1 py-3 bg-slate-100 font-bold rounded-xl">Hủy</button>
-                    <button type="submit" class="flex-[2] py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-black rounded-xl shadow-lg">Gửi Yêu Cầu</button>
-                </div>
-            </form>
-        </div>
-    `;
-    lucide.createIcons();
-}
-
-async function submitClaim(e, uid) {
-    e.preventDefault();
-    const info = {
-        name: document.getElementById('cl-name').value,
-        phone: document.getElementById('cl-phone').value,
-        address: document.getElementById('cl-addr').value
-    };
-    
-    const res = await apiCall('/api/claim', {username: state.username, uniqueId: uid, info: info});
-    if(res.success) {
-        state.inventory = state.inventory.filter(i => i.uniqueId !== uid);
-        const content = document.getElementById('detail-modal-content');
-        content.innerHTML = `
-            <div class="flex flex-col items-center py-6">
-                <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-inner animate-bounce"><i data-lucide="check-circle" width="40"></i></div>
-                <h2 class="text-2xl font-black text-slate-800 mb-2 text-center">Đã Gửi!</h2>
-                <p class="text-sm text-slate-500 text-center mb-6">Yêu cầu của bạn đã được chuyển tới Admin.</p>
-                <button onclick="this.closest('.fixed').remove(); renderCollection(document.getElementById('main-content'))" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">Đóng</button>
-            </div>
-        `;
-        lucide.createIcons();
-    } else {
-        showToast("Lỗi khi gửi yêu cầu", "error");
-    }
-}
+// --- BURN ---
 
 async function burnItem(uid) {
     if(!confirm("Bạn chắc chắn muốn ĐỐT vật phẩm này?")) return;
@@ -1227,7 +1177,7 @@ function renderProfile(div) {
                 <div class="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
                     <div class="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner rotate-3"><i data-lucide="user" width="40"></i></div>
                     <h2 class="text-2xl font-black mb-6 text-slate-800">Đăng Nhập</h2>
-                    <input id="login-u" class="w-full p-3 border border-slate-200 rounded-xl mb-3 bg-slate-50 focus:bg-white transition outline-none focus:border-indigo-500" placeholder="Username (Tự tạo mới)">
+                    <input id="login-u" class="w-full p-3 border border-slate-200 rounded-xl mb-3 bg-slate-50 focus:bg-white transition outline-none focus:border-indigo-500" placeholder="Username">
                     <input id="login-p" type="password" class="w-full p-3 border border-slate-200 rounded-xl mb-6 bg-slate-50 focus:bg-white transition outline-none focus:border-indigo-500" placeholder="Password">
                     <button onclick="login(document.getElementById('login-u').value, document.getElementById('login-p').value)" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Vào Game</button>
                 </div>
@@ -1246,10 +1196,6 @@ function renderProfile(div) {
                     </div>
                     
                     <div class="space-y-3">
-                        <button onclick="state.adminTab='add'; setTab('exchange')" class="w-full bg-slate-50 text-indigo-600 p-4 rounded-xl font-bold hover:bg-slate-100 transition flex items-center justify-between group">
-                           <span class="flex items-center gap-2 group-hover:pl-2 transition-all"><i data-lucide="gift"></i> Nhập Code</span>
-                           <i data-lucide="chevron-right" width="16"></i>
-                        </button>
                         <button onclick="doCheckin()" class="w-full bg-white border-2 border-yellow-100 text-yellow-700 p-4 rounded-xl font-bold flex items-center justify-between hover:bg-yellow-50 transition shadow-sm">
                             <span class="flex items-center gap-2"><i data-lucide="calendar-check"></i> Điểm Danh Ngày</span>
                             <span class="bg-yellow-200 text-yellow-800 text-xs px-2 py-1 rounded">+500</span>
@@ -1262,6 +1208,7 @@ function renderProfile(div) {
             </div>
         `;
     }
+    lucide.createIcons();
 }
 
 async function doCheckin() {
@@ -1292,15 +1239,16 @@ function logout() {
     localStorage.removeItem('pgw_coins');
     localStorage.removeItem('pgw_inv');
     
-    // Reset lại state của ứng dụng
-    state.username = null;
-    state.inventory = [];
-    state.coins = 0;
-    
-    showToast('Đã đăng xuất', 'info');
-    renderApp();
-    setTab('profile');
+    cleanupGames();
 
+    state.username = 'Guest';
+    state.inventory = [];
+    state.coins = 1000;
+    state.isAdmin = false;
+    
+    showToast('Đã đăng xuất thành công', 'info');
+    
+    setTab('profile');
 }
 
 
