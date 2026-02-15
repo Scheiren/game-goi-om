@@ -53,7 +53,7 @@ const BASE_RARITY_CONFIG = {
     S:   { baseChance: 0.03, value: 1000 },
     SS:  { baseChance: 0.015, value: 2500 },
     SSS: { baseChance: 0.004, value: 5000 },
-    EX:  { baseChance: 0.001, value: 10000 }
+    EX:  { baseChance: 1, value: 10000 }
 };
 
 // Dữ liệu mẫu ban đầu
@@ -358,5 +358,6 @@ app.post('/api/claim', async (req, res) => {
         res.status(400).json({ success: false });
     } catch (err) { res.status(500).json({ success: false }); }
 });
+
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
