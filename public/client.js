@@ -325,8 +325,9 @@ function renderCollection(div) {
                         </button>
 
                         ${!state.isSelectionMode ? `
-                        <div class="relative group">
-                            <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm group-hover:border-indigo-300 transition-all cursor-pointer">
+                        <div class="relative group rounded-xl overflow-hidden">
+                            
+                            <div class="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 shadow-sm group-hover:border-indigo-300 transition-all cursor-pointer rounded-xl">
                                 <i data-lucide="arrow-up-down" width="14" class="text-indigo-500"></i>
                                 <span class="text-xs font-bold text-slate-700 min-w-[70px] text-right truncate">
                                     ${sortLabels[state.sortMode]}
@@ -334,7 +335,11 @@ function renderCollection(div) {
                                 <i data-lucide="chevron-down" width="14" class="text-slate-400"></i>
                             </div>
                             
-                            <select onchange="changeSort(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 rounded-xl outline-none appearance-none">
+                            <select 
+                                onchange="changeSort(this.value)" 
+                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 outline-none border-none appearance-none bg-transparent"
+                                style="-webkit-tap-highlight-color: transparent;"
+                            >
                                 <option value="newest">Mới nhất</option>
                                 <option value="oldest">Cũ nhất</option>
                                 <option value="rare_high">Hiếm (EX)</option>
@@ -1259,6 +1264,7 @@ function logout() {
     setTab('profile');
 
 }
+
 
 
 
