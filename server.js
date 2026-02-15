@@ -141,25 +141,19 @@ app.post('/api/gacha', async (req, res) => {
         if (!user) return res.status(404).json({ success: false, message: "User không tồn tại" });
         if (user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ xu" });
 
-        user.coins -= COST;
+        // Tìm hoặc tạo System info
+        let system = await System.findOne({ id: 'main' });
+        if (!system) system = await System.create({ id: 'main' });
 
-        let system = await System.findOneAndUpdate(
-            { id: 'main' },
-            { $inc: { totalPulls: 1, pityCounter: 1 } },
-            { new: true, upsert: true }
-        );
-
-        // Tính tỉ lệ
+        // Tính tỉ lệ EX
         const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
-        let exChance = BASE_RARITY_CONFIG.EX.baseChance + pityBonus;
-        if (exChance > 0.1) exChance = 0.1;
+        let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
 
         // Random Rarity
-        const base = { ...BASE_RARITY_CONFIG };
         let rarity = 'E';
         const rand = Math.random();
         let cumulative = 0;
-        
+        const base = { ...BASE_RARITY_CONFIG };
         const chances = Object.keys(base).map(key => ({ 
             key, 
             chance: key === 'EX' ? exChance : base[key].baseChance 
@@ -170,25 +164,26 @@ app.post('/api/gacha', async (req, res) => {
             if (rand < cumulative) { rarity = item.key; break; }
         }
 
-        if (rarity === 'EX') {
-            await System.updateOne({ id: 'main' }, { pityCounter: 0 });
-            system.pityCounter = 0;
-        }
-
-        // Lấy danh sách gối từ MongoDB thay vì biến tĩnh
+        // Lấy danh sách gối
         const allPillows = await Pillow.find({});
-        let validPillows = allPillows;
+        const validTemplates = allPillows.length > 0 ? allPillows : INITIAL_TEMPLATES;
         
-        if (rarity === 'EX') {
-            const exList = allPillows.filter(p => p.allowEx);
-            if (exList.length > 0) validPillows = exList;
-            else { rarity = 'SSS'; }
-        }
-        
-        // Fallback nếu không có gối nào trong DB
-        if (validPillows.length === 0) validPillows = INITIAL_TEMPLATES;
+        let validPillowsByRarity = rarity === 'EX' 
+            ? validTemplates.filter(p => p.allowEx) 
+            : validTemplates;
 
-        const selected = validPillows[Math.floor(Math.random() * validPillows.length)];
+        if (validPillowsByRarity.length === 0) {
+            validPillowsByRarity = validTemplates;
+            if(rarity === 'EX') rarity = 'SSS';
+        }
+
+        const selected = validPillowsByRarity[Math.floor(Math.random() * validPillowsByRarity.length)];
+
+        // Cập nhật Database đồng nhất
+        user.coins -= COST;
+        if (rarity === 'EX') system.pityCounter = 0;
+        else system.pityCounter += 1;
+        system.totalPulls += 1;
 
         const newItem = {
             id: selected.id,
@@ -200,7 +195,9 @@ app.post('/api/gacha', async (req, res) => {
         };
 
         user.inventory.unshift(newItem);
+        
         await user.save();
+        await system.save();
 
         res.json({ success: true, item: newItem, coins: user.coins, serverInfo: system });
     } catch (err) {
@@ -385,4 +382,5 @@ app.post('/api/admin/pillow', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running at port ${PORT}`);
 });
+
 
