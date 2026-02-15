@@ -253,42 +253,37 @@ async function doGacha() {
 
 function renderGachaResult(container, item) {
     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
-    
-    let glowEffect = '';
-    if(['S','SS','SSS','EX'].includes(item.rarity)) {
-        glowEffect = 'animate-pulse shadow-[0_0_50px_rgba(255,215,0,0.6)] border-yellow-300';
-    }
+    let glowEffect = ['S','SS','SSS','EX'].includes(item.rarity) ? 'animate-pulse shadow-[0_0_40px_rgba(255,215,0,0.4)] border-yellow-300' : '';
 
     container.innerHTML = `
-        <div class="flex flex-col items-center animate-pop-in w-full px-4 perspective-1000">
-            <div class="relative w-64 h-96 transition-transform hover:rotate-y-6 duration-500 transform-style-3d group cursor-pointer">
-                <div class="absolute -inset-4 ${conf.bg} opacity-30 blur-xl rounded-full animate-pulse"></div>
+        <div class="flex flex-col items-center animate-pop-in w-full px-4 max-h-full overflow-y-auto no-scrollbar pb-6">
+            <div class="relative w-64 h-80 md:h-96 transition-transform duration-500 transform-style-3d group cursor-pointer shrink-0">
+                <div class="absolute -inset-4 ${conf.bg} opacity-20 blur-xl rounded-full animate-pulse"></div>
                 <div class="relative w-full h-full bg-white rounded-2xl border-[4px] ${conf.border} shadow-2xl overflow-hidden flex flex-col ${glowEffect}">
                     <div class="absolute inset-0 ${conf.bg} opacity-10"></div>
-                    <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
                     <div class="relative z-10 flex justify-between items-center p-3">
                          <div class="w-10 h-10 rounded-full ${conf.bg} text-white flex items-center justify-center font-black text-lg shadow-md border-2 border-white">${item.rarity}</div>
                          <div class="bg-black/5 px-2 py-1 rounded text-[10px] font-mono text-slate-500">#${item.uniqueId}</div>
                     </div>
-                    <div class="flex-1 flex items-center justify-center z-10 p-4 relative">
-                        <div class="absolute w-40 h-40 bg-white/50 rounded-full blur-2xl"></div>
+                    <div class="flex-1 flex items-center justify-center z-10 p-4 relative overflow-hidden">
                         ${item.imgUrl 
-                            ? `<img src="${item.imgUrl}" class="max-h-48 object-contain drop-shadow-xl animate-float transition-transform duration-500 group-hover:scale-125 group-hover:drop-shadow-2xl">` 
-                            : `<span class="text-8xl animate-bounce transition-transform duration-500 group-hover:scale-125">🧸</span>`
+                            ? `<img src="${item.imgUrl}" class="max-h-full max-w-full object-contain drop-shadow-xl animate-float transition-transform duration-500 group-hover:scale-110">` 
+                            : `<span class="text-7xl animate-bounce">🧸</span>`
                         }
                     </div>
-                    <div class="relative z-10 bg-white/90 backdrop-blur-sm p-4 text-center border-t border-slate-100 transition-colors group-hover:bg-white">
-                        <h3 class="font-black text-lg text-slate-800 leading-tight mb-1 group-hover:text-indigo-600 transition-colors">${item.name}</h3>
-                        <p class="text-xs ${conf.text} font-bold uppercase tracking-wider">Vật phẩm mới!</p>
+                    <div class="relative z-10 bg-white/90 backdrop-blur-sm p-3 text-center border-t border-slate-100">
+                        <h3 class="font-black text-base text-slate-800 leading-tight truncate">${item.name}</h3>
+                        <p class="text-[10px] ${conf.text} font-bold uppercase tracking-wider">Vật phẩm mới!</p>
                     </div>
                 </div>
             </div>
-            <div class="mt-8 space-y-3 w-full max-w-xs">
+
+            <div class="mt-6 space-y-2 w-full max-w-xs shrink-0">
                 <button onclick="renderApp()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition flex items-center justify-center gap-2">
-                    <i data-lucide="check"></i> Thu Thập
+                    <i data-lucide="check" width="18"></i> Thu Thập
                 </button>
                 <button onclick="doGacha()" class="w-full py-3 bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 rounded-xl font-bold active:scale-95 transition flex items-center justify-center gap-2">
-                    <i data-lucide="rotate-cw"></i> Quay Tiếp (100 Xu)
+                    <i data-lucide="rotate-cw" width="18"></i> Quay Tiếp
                 </button>
             </div>
         </div>
