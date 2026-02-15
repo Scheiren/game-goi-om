@@ -325,9 +325,9 @@ function renderCollection(div) {
                         </button>
 
                         ${!state.isSelectionMode ? `
-                        <div class="relative group rounded-xl overflow-hidden">
+                        <div class="relative group rounded-xl overflow-hidden bg-white border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer">
                             
-                            <div class="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 shadow-sm group-hover:border-indigo-300 transition-all cursor-pointer rounded-xl">
+                            <div class="flex items-center gap-2 px-3 py-2 pointer-events-none">
                                 <i data-lucide="arrow-up-down" width="14" class="text-indigo-500"></i>
                                 <span class="text-xs font-bold text-slate-700 min-w-[70px] text-right truncate">
                                     ${sortLabels[state.sortMode]}
@@ -337,7 +337,7 @@ function renderCollection(div) {
                             
                             <select 
                                 onchange="changeSort(this.value)" 
-                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 outline-none border-none appearance-none bg-transparent"
+                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none outline-none border-none m-0 p-0"
                                 style="-webkit-tap-highlight-color: transparent;"
                             >
                                 <option value="newest">Mới nhất</option>
@@ -1264,6 +1264,7 @@ function logout() {
     setTab('profile');
 
 }
+
 
 
 
