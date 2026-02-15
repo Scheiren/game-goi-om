@@ -34,7 +34,7 @@ const System = mongoose.model('System', SystemSchema);
 
 // --- CONFIG ---
 const BASE_RARITY_CONFIG = {
-    E:   { baseChance: 0.30, value: 10 },
+    F:   { baseChance: 0.30, value: 10 },
     D:   { baseChance: 0.25, value: 20 },
     C:   { baseChance: 0.20, value: 50 },
     B:   { baseChance: 0.12, value: 100 },
@@ -153,7 +153,7 @@ app.post('/api/gacha', async (req, res) => {
         const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
         let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
 
-        let rarity = 'E';
+        let rarity = 'F';
         const rand = Math.random();
         let cumulative = 0;
         
