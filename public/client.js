@@ -22,7 +22,7 @@ const GACHA_COST = 100;
 
 let state = {
     username: localStorage.getItem('pgw_user') || 'Guest',
-    coins: parseInt(localStorage.getItem('pgw_coins')) || 1000,
+    coins: parseInt(localStorage.getItem('pgw_coins')) || 100,
     inventory: JSON.parse(localStorage.getItem('pgw_inv') || '[]'),
     isAdmin: false,
     serverInfo: { totalPulls: 0, pityCounter: 0 },
@@ -891,7 +891,7 @@ function initRace(container) {
                     playSound('gacha-result');
                 }
             }
-        }, 1000);
+        }, 500);
     };
 }
 
@@ -952,7 +952,7 @@ function initTaiXiu(container) {
                 showToast(`THẮNG! +${won} Xu`, "success"); playSound('gacha-result'); 
             } else { showToast("Thua rồi!", "error"); }
             document.getElementById('tx-roll').disabled = false;
-        }, 1000);
+        }, 500);
     };
 }
 
@@ -1007,7 +1007,7 @@ function initBauCua(container) {
             
             bets = [0,0,0,0,0,0]; for(let i=0; i<6; i++) document.getElementById(`bc-bet-${i}`).innerText = 0;
             rollBtn.disabled = false;
-        }, 1000);
+        }, 500);
     };
 }
 
@@ -1238,13 +1238,14 @@ function logout() {
 
     state.username = 'Guest';
     state.inventory = [];
-    state.coins = 1000;
+    state.coins = 500;
     state.isAdmin = false;
     
     showToast('Đã đăng xuất thành công', 'info');
     
     setTab('profile');
 }
+
 
 
 
