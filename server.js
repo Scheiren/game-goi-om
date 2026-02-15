@@ -210,21 +210,41 @@ app.post('/api/gacha', async (req, res) => {
 });
 
 // 3. Update Coins
-app.post('/api/update-coins', async (req, res) => {
-    try {
-        const { username, amount } = req.body;
-        const amountNum = Number(amount);
-        if (isNaN(amountNum)) return res.status(400).json({ success: false });
+app.post('/api/update-coins', (req, res) => {
+  try {
+    const { username, amount, adminKey } = req.body;
+    const db = readDB();
+    if (!username || !db.users[username]) return res.status(404).json({ success: false, message: 'User not found' });
 
-        const user = await User.findOneAndUpdate(
-            { username },
-            { $inc: { coins: amountNum } },
-            { new: true }
-        );
-        
-        if (!user) return res.status(404).json({ success: false });
-        res.json({ success: true, newBalance: user.coins });
-    } catch (e) { console.error(e); res.status(500).json({ success: false }); }
+    const amt = Number(amount || 0);
+    if (!Number.isFinite(amt) || Math.floor(amt) !== amt) return res.status(400).json({ success: false, message: 'Invalid amount' });
+
+    // DEDUCT: cho phép client yêu cầu trừ xu (ví dụ đặt cược) nhưng phải có đủ xu trên server
+    if (amt < 0) {
+      const current = Number(db.users[username].coins || 0);
+      if (current < Math.abs(amt)) return res.status(400).json({ success: false, message: 'Insufficient coins' });
+      db.users[username].coins = current + amt;
+      writeDB(db);
+      return res.json({ success: true, newBalance: db.users[username].coins });
+    }
+
+    // CREDIT: không cho client trực tiếp cộng xu trừ khi có ADMIN_KEY (set trong .env) 
+    if (amt > 0) {
+      if (process.env.ADMIN_KEY && adminKey === process.env.ADMIN_KEY) {
+        db.users[username].coins = (Number(db.users[username].coins || 0) + amt);
+        writeDB(db);
+        return res.json({ success: true, newBalance: db.users[username].coins });
+      } else {
+        return res.status(403).json({ success: false, message: 'Credit not allowed from client' });
+      }
+    }
+
+    // amount === 0 (noop)
+    return res.json({ success: true, newBalance: db.users[username].coins });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false });
+  }
 });
 
 // 4. Check-in
@@ -365,3 +385,4 @@ app.post('/api/admin/pillow', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running at port ${PORT}`);
 });
+
