@@ -11,6 +11,8 @@
 //     EX:  { color: 'bg-black', border: 'border-white' }
 // };
 
+const GACHA_COST = 100;
+
 const BASE_RARITY_CONFIG = {
     F:   { bg: 'bg-gradient-to-b from-slate-300 to-slate-400', border: 'border-slate-400', text: 'text-slate-700', shadow: 'shadow-slate-400/50', ring: 'ring-slate-300' },
     D:   { bg: 'bg-gradient-to-b from-stone-400 to-stone-500', border: 'border-stone-500', text: 'text-stone-800', shadow: 'shadow-stone-500/50', ring: 'ring-stone-400' },
@@ -25,13 +27,23 @@ const BASE_RARITY_CONFIG = {
 
 const RARITY_WEIGHT = {
     'EX': 67, 'SSS': 8, 'SS': 7, 'S': 6, 
-    'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1
+    'A': 5, 'B': 4, 'C': 3, 'D': 2, 'F': 1
 };
 
-state = {
-    ...state,
+let state = {
+    username: localStorage.getItem('pgw_user') || 'Guest',
+    coins: parseInt(localStorage.getItem('pgw_coins')) || 1000,
+    inventory: JSON.parse(localStorage.getItem('pgw_inv') || '[]'),
+    isAdmin: false,
+    serverInfo: { totalPulls: 0, pityCounter: 0 },
+    tab: 'gacha',
+    activeGame: null,
+    adminTab: 'list', 
+    editingPillowId: null,
     sortMode: 'newest'
 };
+
+let activeInterval = null, activeTimeout = null, activeAnimFrame = null;
 
 function changeSort(mode) {
     state.sortMode = mode;
@@ -104,21 +116,6 @@ function renderCollection(div) {
     `;
     lucide.createIcons();
 }
-
-const GACHA_COST = 100;
-let state = {
-    username: localStorage.getItem('pgw_user') || 'Guest',
-    coins: parseInt(localStorage.getItem('pgw_coins')) || 1000,
-    inventory: JSON.parse(localStorage.getItem('pgw_inv') || '[]'),
-    isAdmin: false,
-    serverInfo: { totalPulls: 0, pityCounter: 0 },
-    tab: 'gacha',
-    activeGame: null,
-    adminTab: 'list', 
-    editingPillowId: null
-};
-
-let activeInterval = null, activeTimeout = null, activeAnimFrame = null;
 
 // --- UTILS ---
 function playSound(id) {
@@ -940,7 +937,16 @@ function initBauCua(container) {
 
 // --- ADMIN SYSTEM (FULL FEATURED) ---
 async function renderAdmin(div) {
-    const res = await fetch('/api/pillows').then(r=>r.json());
+    // Thêm try-catch để tránh crash trang nếu API lỗi
+    let res = [];
+    try {
+        const response = await fetch('/api/pillows');
+        res = await response.json();
+        if(!Array.isArray(res)) res = []; // Đảm bảo res luôn là mảng
+    } catch (e) {
+        console.error("Lỗi lấy danh sách gối:", e);
+        res = [];
+    }
     
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-100">
@@ -952,10 +958,9 @@ async function renderAdmin(div) {
                         <button onclick="state.adminTab='add'; state.editingPillowId=null; renderAdmin(document.getElementById('main-content'))" class="px-3 py-1 rounded text-sm ${state.adminTab==='add'?'bg-indigo-100 text-indigo-700':'text-slate-400'}">Add/Edit</button>
                     </div>
                 </div>
-                <!-- Admin Stats -->
                 <div class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded border border-slate-200 flex justify-between">
-                    <span>Total Pulls: ${state.serverInfo.totalPulls}</span>
-                    <span>Pity: ${state.serverInfo.pityCounter}</span>
+                    <span>Total Pulls: ${state.serverInfo?.totalPulls || 0}</span>
+                    <span>Pity: ${state.serverInfo?.pityCounter || 0}</span>
                 </div>
             </div>
             <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
@@ -965,7 +970,7 @@ async function renderAdmin(div) {
     `;
     lucide.createIcons();
     
-    // Nếu đang ở tab add và có editingPillowId, fill dữ liệu
+    // Fill dữ liệu form nếu đang edit
     if(state.adminTab === 'add' && state.editingPillowId) {
         const p = res.find(x => x.id === state.editingPillowId);
         if(p) {

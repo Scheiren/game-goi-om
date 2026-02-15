@@ -20,7 +20,7 @@ const UserSchema = new mongoose.Schema({
     coins: { type: Number, default: 1000 },
     isAdmin: { type: Boolean, default: false },
     lastCheckIn: { type: Number, default: 0 },
-    inventory: []
+    inventory: { type: Array, default: [] }
 });
 const User = mongoose.model('User', UserSchema);
 
