@@ -218,6 +218,54 @@ app.post('/api/burn', async (req, res) => {
     } catch(err) { res.status(500).json({ success:false }); }
 });
 
+app.post('/api/burn-batch', async (req, res) => {
+    try {
+        const { username, uniqueIds } = req.body; // uniqueIds là mảng []
+        if (!Array.isArray(uniqueIds) || uniqueIds.length === 0) {
+            return res.status(400).json({ success: false, message: "Chưa chọn vật phẩm" });
+        }
+
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ success: false });
+
+        let burntCount = 0;
+        let generatedCodes = [];
+
+        // Lọc lại inventory: Giữ lại những item KHÔNG nằm trong danh sách cần đốt
+        // Đồng thời thu thập thông tin để tạo code
+        
+        // 1. Tìm các item sẽ bị đốt để tạo code trước
+        const itemsToBurn = user.inventory.filter(i => uniqueIds.includes(i.uniqueId));
+        
+        if (itemsToBurn.length === 0) {
+            return res.json({ success: false, message: "Không tìm thấy vật phẩm nào để đốt" });
+        }
+
+        // 2. Tạo code cho từng món
+        itemsToBurn.forEach(item => {
+            generatedCodes.push(`PIL-${item.id}-${item.rarity}-${item.uniqueId}`);
+        });
+
+        // 3. Xóa item khỏi inventory thật
+        const initialLength = user.inventory.length;
+        user.inventory = user.inventory.filter(i => !uniqueIds.includes(i.uniqueId));
+        
+        burntCount = initialLength - user.inventory.length;
+
+        await user.save();
+
+        return res.json({ 
+            success: true, 
+            burntCount, 
+            codes: generatedCodes 
+        });
+
+    } catch(err) { 
+        console.error(err);
+        res.status(500).json({ success: false }); 
+    }
+});
+
 //Exchange
 app.post('/api/exchange', async (req, res) => {
     try {

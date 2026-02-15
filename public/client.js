@@ -30,7 +30,9 @@ let state = {
     activeGame: null,
     adminTab: 'list', 
     editingPillowId: null,
-    sortMode: 'newest'
+    sortMode: 'newest',
+    isSelectionMode: false,
+    selectedItems: []
 };
 
 let activeInterval = null, activeTimeout = null, activeAnimFrame = null;
@@ -295,71 +297,95 @@ function renderGachaResult(container, item) {
 
 // --- COLLECTION (KHO ĐỒ) ---
 function renderCollection(div) {
-    // 1. LOGIC SẮP XẾP (Giữ nguyên)
     let sortedList = [...state.inventory]; 
 
-    if (state.sortMode === 'newest') {
-        sortedList.sort((a, b) => (b.obtainedAt || 0) - (a.obtainedAt || 0));
-    } else if (state.sortMode === 'oldest') {
-        sortedList.sort((a, b) => (a.obtainedAt || 0) - (b.obtainedAt || 0));
-    } else if (state.sortMode === 'rare_high') {
-        sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
-    } else if (state.sortMode === 'rare_low') {
-        sortedList.sort((a, b) => (RARITY_WEIGHT[a.rarity] || 0) - (RARITY_WEIGHT[b.rarity] || 0));
-    }
+    if (state.sortMode === 'newest') sortedList.sort((a, b) => (b.obtainedAt || 0) - (a.obtainedAt || 0));
+    else if (state.sortMode === 'oldest') sortedList.sort((a, b) => (a.obtainedAt || 0) - (b.obtainedAt || 0));
+    else if (state.sortMode === 'rare_high') sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
+    else if (state.sortMode === 'rare_low') sortedList.sort((a, b) => (RARITY_WEIGHT[a.rarity] || 0) - (RARITY_WEIGHT[b.rarity] || 0));
 
-    // 2. RENDER GIAO DIỆN
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-50">
-            <div class="px-4 py-3 border-b bg-white shadow-sm z-10 sticky top-0 flex justify-between items-center gap-2">
-                <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1 shrink-0 text-sm md:text-base">
-                    KHO ĐỒ (${state.inventory.length})
-                </h2>
-                
-                <div class="relative group">
-                    <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer">
-                        <i data-lucide="arrow-up-down" width="16" class="text-indigo-500"></i>
-                        
-                        <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[90px] text-right z-10">
-                            <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨ Mới nhất</option>
-                            <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️ Cũ nhất</option>
-                            <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎 Hiếm (EX)</option>
-                            <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦 Thường (F)</option>
-                        </select>
-                        
-                        <i data-lucide="chevron-down" width="14" class="text-slate-400 group-hover:text-indigo-500 transition"></i>
+            <div class="px-4 py-3 border-b bg-white shadow-sm z-10 sticky top-0 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1 shrink-0 text-sm md:text-base">
+                        KHO ĐỒ (${state.inventory.length})
+                    </h2>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="toggleSelectionMode()" class="px-3 py-2 rounded-xl border font-bold text-xs flex items-center gap-1 transition ${state.isSelectionMode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}">
+                            <i data-lucide="${state.isSelectionMode ? 'x' : 'check-square'}" width="16"></i>
+                            ${state.isSelectionMode ? 'Hủy Chọn' : 'Chọn Nhiều'}
+                        </button>
+
+                        ${!state.isSelectionMode ? `
+                        <div class="relative group">
+                            <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer">
+                                <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[20px] text-right z-10">
+                                    <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨Mới nhất</option>
+                                    <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️Cũ nhất</option>
+                                    <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎Hiếm(EX)</option>
+                                    <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦Thường(F)</option>
+                                </select>
+                            </div>
+                        </div>` : ''}
                     </div>
                 </div>
+
+                ${state.isSelectionMode ? `
+                <div class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100 animate-slide-down">
+                    <span class="text-xs font-bold text-red-600 ml-1">Đã chọn: ${state.selectedItems.length}</span>
+                    <div class="flex gap-2">
+                        <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50">Tất cả</button>
+                        <button onclick="executeBulkBurn()" class="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-red-700 disabled:opacity-50" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
+                            🔥 Đốt Ngay
+                        </button>
+                    </div>
+                </div>
+                ` : ''}
             </div>
 
             <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 no-scrollbar pb-20">
-                ${sortedList.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.<br>Đi quay Gacha ngay!</div>` : ''}
+                ${sortedList.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.</div>` : ''}
                 
                 ${sortedList.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
                     const imgContent = item.imgUrl 
                         ? `<img src="${item.imgUrl}" class="w-full h-full object-contain drop-shadow-md group-hover:scale-110 transition duration-500">` 
                         : `<span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span>`;
-                        
+                    
+                    const isSelected = state.selectedItems.includes(item.uniqueId);
+                    const selectionClass = state.isSelectionMode 
+                        ? (isSelected ? 'ring-4 ring-red-500 border-red-500 transform scale-95 opacity-100' : 'opacity-60 hover:opacity-100') 
+                        : '';
+                    
+                    const clickAction = state.isSelectionMode 
+                        ? `toggleItemSelect('${item.uniqueId}')` 
+                        : `itemDetail('${item.uniqueId}')`;
+
                     return `
-                        <div onclick="itemDetail('${item.uniqueId}')" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col">
+                        <div onclick="${clickAction}" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col ${selectionClass}">
                             
-                            <div class="absolute inset-0 opacity-20 group-hover:opacity-30 transition pointer-events-none ${conf.bg}"></div>
+                            ${state.isSelectionMode ? `
+                                <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500' : 'bg-slate-300/50'}">
+                                    ${isSelected ? '<i data-lucide="check" width="14" class="text-white"></i>' : ''}
+                                </div>
+                            ` : ''}
+
+                            <div class="absolute inset-0 opacity-20 transition pointer-events-none ${conf.bg}"></div>
                             
                             <div class="absolute top-2 left-2 z-20">
                                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
                             </div>
 
-                            <div class="flex-1 w-full min-h-0 flex items-center justify-center p-3 relative z-10">
+                            <div class="flex-1 w-full min-h-0 flex items-center justify-center p-3 pb-0 relative z-10">
                                 ${imgContent}
                             </div>
 
-                            <div class="h-[28%] shrink-0 w-full bg-white/95 flex flex-col justify-center items-center p-2 z-20 border-t border-slate-100 backdrop-blur-sm">
-                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 group-hover:text-indigo-600 transition w-full px-1">${item.name}</div>
+                            <div class="w-full h-auto bg-white/95 flex flex-col justify-center items-center py-3 px-2 z-20 border-t border-slate-100 backdrop-blur-sm mt-auto">
+                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-1 w-full px-1">${item.name}</div>
                                 <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-slate-50 px-2 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
-                            
-                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
                         </div>
                     `;
                 }).join('')}
@@ -491,6 +517,95 @@ async function burnItem(uid) {
         showToast("Lỗi hệ thống! Không thể đốt.", "error");
         this.closest('.fixed').remove();
     }
+}
+
+// --- BURN BATCH ---
+
+function toggleSelectionMode() {
+    state.isSelectionMode = !state.isSelectionMode;
+    state.selectedItems = [];
+    renderCollection(document.getElementById('main-content'));
+}
+
+function toggleItemSelect(uid) {
+    if (state.selectedItems.includes(uid)) {
+        state.selectedItems = state.selectedItems.filter(id => id !== uid);
+    } else {
+        state.selectedItems.push(uid);
+    }
+    renderCollection(document.getElementById('main-content'));
+}
+
+function selectAll() {
+    if (state.selectedItems.length === state.inventory.length) {
+        state.selectedItems = [];
+    } else {
+        state.selectedItems = state.inventory.map(i => i.uniqueId);
+    }
+    renderCollection(document.getElementById('main-content'));
+}
+
+async function executeBulkBurn() {
+    if (state.selectedItems.length === 0) return;
+    
+    if (!confirm(`CẢNH BÁO: Bạn có chắc muốn đốt ${state.selectedItems.length} vật phẩm này không? Hành động không thể hoàn tác!`)) return;
+
+    const div = document.getElementById('main-content');
+    div.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><i data-lucide="loader-2" class="animate-spin text-red-600 mb-4" width="48"></i><p class="font-bold text-slate-600">Đang thiêu hủy...</p></div>`;
+    lucide.createIcons();
+
+    const res = await apiCall('/api/burn-batch', {
+        username: state.username,
+        uniqueIds: state.selectedItems
+    });
+
+    if (res.success) {
+        state.inventory = state.inventory.filter(i => !state.selectedItems.includes(i.uniqueId));
+        state.isSelectionMode = false;
+        state.selectedItems = [];
+
+        showBulkBurnResult(res.codes);
+    } else {
+        showToast(res.message || "Lỗi khi đốt vật phẩm", "error");
+        renderCollection(document.getElementById('main-content'));
+    }
+}
+
+function showBulkBurnResult(codes) {
+    const modal = document.createElement('div');
+    modal.className = "fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in";
+    
+    const codesHtml = codes.map(c => `
+        <div class="bg-slate-800 p-3 rounded-lg border border-slate-700 flex justify-between items-center gap-2 group cursor-pointer hover:bg-slate-700" onclick="navigator.clipboard.writeText('${c}'); showToast('Copied!', 'success')">
+            <span class="font-mono text-yellow-400 font-bold text-sm truncate select-all">${c}</span>
+            <i data-lucide="copy" width="14" class="text-slate-500 group-hover:text-white"></i>
+        </div>
+    `).join('');
+
+    modal.innerHTML = `
+        <div class="bg-slate-900 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b border-slate-800 text-center">
+                <div class="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                    <i data-lucide="flame" width="32"></i>
+                </div>
+                <h2 class="text-2xl font-black text-white">Đốt Thành Công!</h2>
+                <p class="text-slate-400 text-sm mt-1">Đã nhận được ${codes.length} mã quà tặng.</p>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-2 bg-black/20">
+                ${codesHtml}
+            </div>
+
+            <div class="p-4 border-t border-slate-800">
+                <button onclick="this.closest('.fixed').remove(); renderCollection(document.getElementById('main-content'))" class="w-full py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">
+                    Xác Nhận & Đóng
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    lucide.createIcons();
+    playSound('gacha-result');
 }
 
 // --- EXCHANGE TAB ---
