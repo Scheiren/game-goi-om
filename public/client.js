@@ -1,18 +1,6 @@
-// --- CONFIG & STATE ---
-// const BASE_RARITY_CONFIG = {
-//     F:   { color: 'bg-slate-400', border: 'border-slate-500' },
-//     D:   { color: 'bg-stone-500', border: 'border-stone-600' },
-//     C:   { color: 'bg-green-500', border: 'border-green-600' },
-//     B:   { color: 'bg-blue-500', border: 'border-blue-600' },
-//     A:   { color: 'bg-purple-500', border: 'border-purple-600' },
-//     S:   { color: 'bg-yellow-500', border: 'border-yellow-600' },
-//     SS:  { color: 'bg-orange-500', border: 'border-orange-600' },
-//     SSS: { color: 'bg-red-600', border: 'border-red-700' },
-//     EX:  { color: 'bg-black', border: 'border-white' }
-// };
-
-const GACHA_COST = 100;
-
+// ==========================================
+// 1. CẤU HÌNH & KHỞI TẠO (CONFIG & STATE)
+// ==========================================
 const BASE_RARITY_CONFIG = {
     F:   { bg: 'bg-gradient-to-b from-slate-300 to-slate-400', border: 'border-slate-400', text: 'text-slate-700', shadow: 'shadow-slate-400/50', ring: 'ring-slate-300' },
     D:   { bg: 'bg-gradient-to-b from-stone-400 to-stone-500', border: 'border-stone-500', text: 'text-stone-800', shadow: 'shadow-stone-500/50', ring: 'ring-stone-400' },
@@ -26,9 +14,11 @@ const BASE_RARITY_CONFIG = {
 };
 
 const RARITY_WEIGHT = {
-    'EX': 67, 'SSS': 8, 'SS': 7, 'S': 6, 
-    'A': 5, 'B': 4, 'C': 3, 'D': 2, 'F': 1
+    'EX': 100, 'SSS': 90, 'SS': 80, 'S': 70, 
+    'A': 60, 'B': 50, 'C': 40, 'D': 30, 'F': 20
 };
+
+const GACHA_COST = 100;
 
 let state = {
     username: localStorage.getItem('pgw_user') || 'Guest',
@@ -45,79 +35,9 @@ let state = {
 
 let activeInterval = null, activeTimeout = null, activeAnimFrame = null;
 
-function changeSort(mode) {
-    state.sortMode = mode;
-    renderCollection(document.getElementById('main-content'));
-}
-
-function renderCollection(div) {
-    let sortedList = [...state.inventory]; 
-
-    if (state.sortMode === 'newest') {
-        sortedList.sort((a, b) => (b.obtainedAt || 0) - (a.obtainedAt || 0));
-    } else if (state.sortMode === 'oldest') {
-        sortedList.sort((a, b) => (a.obtainedAt || 0) - (b.obtainedAt || 0));
-    } else if (state.sortMode === 'rare_high') {
-        sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
-    } else if (state.sortMode === 'rare_low') {
-        sortedList.sort((a, b) => (RARITY_WEIGHT[a.rarity] || 0) - (RARITY_WEIGHT[b.rarity] || 0));
-    }
-
-    div.innerHTML = `
-        <div class="h-full flex flex-col bg-slate-50">
-            <div class="p-4 border-b bg-white shadow-sm z-10 sticky top-0 flex justify-between items-center gap-2">
-                <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1 shrink-0">
-                    KHO ĐỒ (${state.inventory.length})
-                </h2>
-                
-                <div class="flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                    <i data-lucide="arrow-up-down" width="14" class="text-slate-500"></i>
-                    <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[80px] text-right">
-                        <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>Mới nhất</option>
-                        <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>Cũ nhất</option>
-                        <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>Hiếm nhất (EX)</option>
-                        <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>Thường (E)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 no-scrollbar pb-20">
-                ${sortedList.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.<br>Đi quay Gacha ngay!</div>` : ''}
-                
-                ${sortedList.map(item => {
-                    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
-                    const imgContent = item.imgUrl 
-                        ? `<img src="${item.imgUrl}" class="w-full h-full object-contain drop-shadow-md group-hover:scale-110 transition duration-500">` 
-                        : `<span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span>`;
-                        
-                    return `
-                        <div onclick="itemDetail('${item.uniqueId}')" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col">
-                            <div class="absolute inset-0 opacity-20 group-hover:opacity-30 transition pointer-events-none ${conf.bg}"></div>
-                            
-                            <div class="absolute top-2 left-2 z-20">
-                                <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
-                            </div>
-
-                            <div class="h-[72%] w-full flex items-center justify-center p-3 relative z-10">
-                                ${imgContent}
-                            </div>
-
-                            <div class="h-[28%] w-full bg-gradient-to-t from-white via-white/90 to-transparent flex flex-col justify-center items-center p-2 z-20 border-t border-white/50 relative">
-                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 group-hover:text-indigo-600 transition w-full px-1">${item.name}</div>
-                                <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-white/50 px-2 rounded-full border border-slate-100">#${item.uniqueId}</div>
-                            </div>
-                            
-                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-    `;
-    lucide.createIcons();
-}
-
-// --- UTILS ---
+// ==========================================
+// 2. CÁC HÀM TIỆN ÍCH (UTILS)
+// ==========================================
 function playSound(id) {
     const el = document.getElementById(`snd-${id}`);
     if(el) { 
@@ -144,7 +64,15 @@ function cleanupGames() {
     state.activeGame = null;
 }
 
-// --- API ---
+function changeSort(mode) {
+    state.sortMode = mode;
+    // Gọi lại hàm vẽ giao diện kho đồ
+    renderCollection(document.getElementById('main-content'));
+}
+
+// ==========================================
+// 3. API & LOGIN
+// ==========================================
 async function apiCall(endpoint, body) {
     try {
         const res = await fetch(endpoint, {
@@ -165,14 +93,13 @@ async function login(u, p) {
         state.inventory = (res.user && res.user.inventory) || state.inventory;
         state.isAdmin = !!(res.user && res.user.isAdmin);
         state.serverInfo = res.serverInfo || state.serverInfo;
-
-        state.username = res.username || (res.user && res.user.username) || u;
         
         localStorage.setItem('pgw_user', u);
-        localStorage.setItem('pgw_pass', p);
+        if(p) localStorage.setItem('pgw_pass', p);
+        localStorage.setItem('pgw_coins', state.coins);
+        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
 
         showToast(res.message || 'Đăng nhập thành công', 'success');
-        
         renderApp();
     } else {
         const errorMsg = res && res.message ? res.message : 'Đăng nhập thất bại';
@@ -182,18 +109,20 @@ async function login(u, p) {
 
 async function refreshUserData() {
     if(state.username === 'Guest') return;
-    await login(state.username, ''); 
+    const savedPass = localStorage.getItem('pgw_pass') || '';
+    await login(state.username, savedPass); 
 }
 
-// --- UI CORE ---
+// ==========================================
+// 4. UI CORE (ĐIỀU HƯỚNG & RENDER CHÍNH)
+// ==========================================
 window.onload = () => {
-    if(state.username !== 'Guest') refreshUserData();
+    checkAuth();
+
     document.addEventListener('click', (e) => {
         if(e.target.closest('button') || e.target.closest('.cursor-pointer')) {
-            playSound('click');
         }
     });
-    renderApp();
 };
 
 function setTab(t) {
@@ -210,24 +139,37 @@ function updateUI() {
     document.querySelectorAll('.coin-display').forEach(el => el.textContent = state.coins);
     
     document.querySelectorAll('.admin-nav-item').forEach(el => {
-        el.style.display = state.isAdmin ? 'flex' : 'none';
-        if(!state.isAdmin) el.classList.add('hidden'); else el.classList.remove('hidden');
+        if(state.isAdmin) el.classList.remove('hidden'); 
+        else el.classList.add('hidden');
     });
     
     document.querySelectorAll('.nav-btn, .sidebar-btn').forEach(btn => {
         const isActive = btn.dataset.tab === state.tab;
+        
         if(btn.classList.contains('sidebar-btn')) {
-            btn.className = `sidebar-btn flex items-center space-x-3 w-full px-6 py-4 text-left transition-colors ${isActive ? 'bg-indigo-50 text-indigo-600 border-r-4 border-indigo-600' : 'text-slate-500 hover:bg-slate-50'} ${btn.dataset.tab === 'admin' ? 'admin-nav-item' : ''}`;
+            btn.className = `sidebar-btn flex items-center space-x-3 w-full px-6 py-4 text-left transition-colors rounded-xl ${isActive ? 'bg-indigo-50 text-indigo-600 border-r-4 border-indigo-600' : 'text-slate-500 hover:bg-slate-50'}`;
+            if(btn.dataset.tab === 'admin') btn.classList.add('admin-nav-item');
         } else {
-             if(isActive) { btn.classList.add('text-indigo-600'); btn.classList.remove('text-slate-400'); }
-             else { btn.classList.remove('text-indigo-600'); btn.classList.add('text-slate-400'); }
+             if(isActive) { 
+                 btn.classList.add('text-indigo-600'); 
+                 btn.classList.remove('text-slate-400'); 
+             } else { 
+                 btn.classList.remove('text-indigo-600'); 
+                 btn.classList.add('text-slate-400'); 
+             }
         }
     });
+    
+    document.querySelectorAll('.admin-nav-item').forEach(el => {
+        if(!state.isAdmin) el.classList.add('hidden');
+    });
+
     lucide.createIcons();
 }
 
 function renderApp() {
     const content = document.getElementById('main-content');
+    if (!content) return;
     if (state.activeGame) return; 
 
     content.innerHTML = '';
@@ -237,12 +179,17 @@ function renderApp() {
         case 'gacha': renderGacha(content); break;
         case 'collection': renderCollection(content); break;
         case 'games': renderGamesHub(content); break;
-        case 'exchange': renderExchange(content); break; // NEW TAB
+        case 'exchange': renderExchange(content); break;
         case 'profile': renderProfile(content); break;
         case 'admin': if(state.isAdmin) renderAdmin(content); else setTab('profile'); break;
+        default: renderGacha(content);
     }
     lucide.createIcons();
 }
+
+// ==========================================
+// 5. CÁC HÀM RENDER CHI TIẾT
+// ==========================================
 
 // --- GACHA ---
 function renderGacha(div) {
@@ -302,7 +249,7 @@ async function doGacha() {
 }
 
 function renderGachaResult(container, item) {
-    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
+    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
     
     let glowEffect = '';
     if(['S','SS','SSS','EX'].includes(item.rarity)) {
@@ -312,35 +259,27 @@ function renderGachaResult(container, item) {
     container.innerHTML = `
         <div class="flex flex-col items-center animate-pop-in w-full px-4 perspective-1000">
             <div class="relative w-64 h-96 transition-transform hover:rotate-y-6 duration-500 transform-style-3d group cursor-pointer">
-                
                 <div class="absolute -inset-4 ${conf.bg} opacity-30 blur-xl rounded-full animate-pulse"></div>
-
                 <div class="relative w-full h-full bg-white rounded-2xl border-[4px] ${conf.border} shadow-2xl overflow-hidden flex flex-col ${glowEffect}">
-                    
                     <div class="absolute inset-0 ${conf.bg} opacity-10"></div>
                     <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
-
                     <div class="relative z-10 flex justify-between items-center p-3">
                          <div class="w-10 h-10 rounded-full ${conf.bg} text-white flex items-center justify-center font-black text-lg shadow-md border-2 border-white">${item.rarity}</div>
                          <div class="bg-black/5 px-2 py-1 rounded text-[10px] font-mono text-slate-500">#${item.uniqueId}</div>
                     </div>
-
                     <div class="flex-1 flex items-center justify-center z-10 p-4 relative">
                         <div class="absolute w-40 h-40 bg-white/50 rounded-full blur-2xl"></div>
-                        
                         ${item.imgUrl 
                             ? `<img src="${item.imgUrl}" class="max-h-48 object-contain drop-shadow-xl animate-float transition-transform duration-500 group-hover:scale-125 group-hover:drop-shadow-2xl">` 
                             : `<span class="text-8xl animate-bounce transition-transform duration-500 group-hover:scale-125">🧸</span>`
                         }
                     </div>
-
                     <div class="relative z-10 bg-white/90 backdrop-blur-sm p-4 text-center border-t border-slate-100 transition-colors group-hover:bg-white">
                         <h3 class="font-black text-lg text-slate-800 leading-tight mb-1 group-hover:text-indigo-600 transition-colors">${item.name}</h3>
                         <p class="text-xs ${conf.text} font-bold uppercase tracking-wider">Vật phẩm mới!</p>
                     </div>
                 </div>
             </div>
-
             <div class="mt-8 space-y-3 w-full max-w-xs">
                 <button onclick="renderApp()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition flex items-center justify-center gap-2">
                     <i data-lucide="check"></i> Thu Thập
@@ -354,40 +293,56 @@ function renderGachaResult(container, item) {
     lucide.createIcons();
 }
 
-// --- COLLECTION ---
+// --- COLLECTION (KHO ĐỒ) ---
 function renderCollection(div) {
+    let sortedList = [...state.inventory]; 
+
+    if (state.sortMode === 'newest') {
+        sortedList.sort((a, b) => (b.obtainedAt || 0) - (a.obtainedAt || 0));
+    } else if (state.sortMode === 'oldest') {
+        sortedList.sort((a, b) => (a.obtainedAt || 0) - (b.obtainedAt || 0));
+    } else if (state.sortMode === 'rare_high') {
+        sortedList.sort((a, b) => (RARITY_WEIGHT[b.rarity] || 0) - (RARITY_WEIGHT[a.rarity] || 0));
+    } else if (state.sortMode === 'rare_low') {
+        sortedList.sort((a, b) => (RARITY_WEIGHT[a.rarity] || 0) - (RARITY_WEIGHT[b.rarity] || 0));
+    }
+
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-50">
-            <div class="p-4 border-b bg-white shadow-sm z-10 sticky top-0 flex justify-between items-center">
-                <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1">BỘ SƯU TẬP (${state.inventory.length})</h2>
-                <span class="text-xs text-slate-400">Sắp xếp: Mới nhất</span>
+            <div class="p-4 border-b bg-white shadow-sm z-10 sticky top-0 flex justify-between items-center gap-2">
+                <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1 shrink-0">
+                    KHO ĐỒ (${state.inventory.length})
+                </h2>
+                <div class="flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <i data-lucide="arrow-up-down" width="14" class="text-slate-500"></i>
+                    <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[80px] text-right">
+                        <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>Mới nhất</option>
+                        <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>Cũ nhất</option>
+                        <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>Hiếm nhất (EX)</option>
+                        <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>Thường (E)</option>
+                    </select>
+                </div>
             </div>
             <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 no-scrollbar pb-20">
-                ${state.inventory.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.<br>Đi quay Gacha ngay!</div>` : ''}
-                ${state.inventory.map(item => {
-                    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
-                    
+                ${sortedList.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.<br>Đi quay Gacha ngay!</div>` : ''}
+                ${sortedList.map(item => {
+                    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
                     const imgContent = item.imgUrl 
                         ? `<img src="${item.imgUrl}" class="w-full h-full object-contain drop-shadow-md group-hover:scale-110 transition duration-500">` 
                         : `<span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span>`;
-                        
                     return `
                         <div onclick="itemDetail('${item.uniqueId}')" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col">
                             <div class="absolute inset-0 opacity-20 group-hover:opacity-30 transition pointer-events-none ${conf.bg}"></div>
-                            
                             <div class="absolute top-2 left-2 z-20">
                                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
                             </div>
-
                             <div class="h-[72%] w-full flex items-center justify-center p-3 relative z-10">
                                 ${imgContent}
                             </div>
-
                             <div class="h-[28%] w-full bg-gradient-to-t from-white via-white/90 to-transparent flex flex-col justify-center items-center p-2 z-20 border-t border-white/50 relative">
                                 <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 group-hover:text-indigo-600 transition w-full px-1">${item.name}</div>
                                 <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-white/50 px-2 rounded-full border border-slate-100">#${item.uniqueId}</div>
                             </div>
-                            
                             ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
                         </div>
                     `;
@@ -401,36 +356,27 @@ function renderCollection(div) {
 function itemDetail(uid) {
     const item = state.inventory.find(i => i.uniqueId === uid);
     if(!item) return;
-    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.E;
+    const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
 
-    // Tạo modal
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in";
-    
-    // HTML Modal
     modal.innerHTML = `
         <div id="detail-modal-content" class="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl relative animate-slide-up flex flex-col">
-            
             <div class="h-24 ${conf.bg} relative w-full">
                 <button onclick="this.closest('.fixed').remove()" class="absolute top-3 right-3 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition z-50 cursor-pointer">
                     <i data-lucide="x" width="18"></i>
                 </button>
             </div>
-
             <div class="px-6 pb-8 -mt-12 flex flex-col items-center relative z-10 w-full">
-                
                 <div class="w-24 h-24 bg-white p-1 rounded-2xl shadow-lg border-4 ${conf.border} flex items-center justify-center mb-4 overflow-hidden">
                      ${item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-full object-cover">` : '<span class="text-4xl">🧸</span>'}
                 </div>
-
                 <h3 class="text-2xl font-black text-slate-800 leading-tight mb-2 text-center">${item.name}</h3>
-                
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 mb-6">
                     <span class="font-black ${conf.text}">${item.rarity}</span>
                     <span class="w-1 h-1 rounded-full bg-slate-400"></span>
                     <span class="font-mono text-xs text-slate-500">#${uid}</span>
                 </div>
-
                 <div class="w-full space-y-3">
                      ${item.rarity === 'EX' ? 
                         `<button onclick="openClaimForm('${uid}')" class="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-200 active:scale-95 transition flex items-center justify-center gap-2">
@@ -449,11 +395,11 @@ function itemDetail(uid) {
     window.currentModal = modal;
 }
 
-// NEW: CLAIM EX FORM
+// --- CLAIM & BURN ---
 function openClaimForm(uid) {
     const content = document.getElementById('detail-modal-content');
     content.innerHTML = `
-        <div class="flex flex-col w-full text-left">
+        <div class="flex flex-col w-full text-left p-6">
             <h2 class="text-2xl font-black text-slate-800 mb-2 flex items-center gap-2"><i data-lucide="truck" class="text-orange-500"></i> Nhận Hiện Vật</h2>
             <p class="text-sm text-slate-500 mb-6">Điền thông tin chính xác để Admin gửi gối EX về tận giường cho bạn.</p>
             <form id="claim-form" class="space-y-4" onsubmit="submitClaim(event, '${uid}')">
@@ -507,23 +453,18 @@ async function burnItem(uid) {
     
     if(res.success) {
         state.inventory = state.inventory.filter(i => i.uniqueId !== uid);
-        
         content.innerHTML = `
             <div class="bg-gradient-to-br from-slate-900 to-slate-800 p-8 flex flex-col items-center text-center h-full relative overflow-hidden">
                 <button onclick="this.closest('.fixed').remove(); renderCollection(document.getElementById('main-content'))" class="absolute top-4 right-4 text-slate-500 hover:text-white"><i data-lucide="x"></i></button>
-
                 <div class="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mb-4 animate-bounce">
                     <i data-lucide="flame" width="32" class="fill-current"></i>
                 </div>
-
                 <h2 class="text-xl font-black text-white mb-1">Đốt Thành Công!</h2>
                 <p class="text-xs text-slate-400 mb-6">Vật phẩm đã bị hủy. Đây là mã quà tặng của bạn:</p>
-
                 <div class="w-full bg-black/30 border border-white/10 p-4 rounded-xl flex items-center justify-between gap-2 mb-6 group cursor-pointer hover:bg-black/50 transition" onclick="navigator.clipboard.writeText('${res.code}'); showToast('Đã sao chép!', 'success')">
                     <div class="font-mono text-lg font-bold text-yellow-400 tracking-wider truncate select-all">${res.code}</div>
                     <i data-lucide="copy" width="16" class="text-slate-500 group-hover:text-white transition"></i>
                 </div>
-
                 <button onclick="this.closest('.fixed').remove(); renderCollection(document.getElementById('main-content'))" class="w-full py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition">
                     Xong
                 </button>
@@ -536,7 +477,7 @@ async function burnItem(uid) {
     }
 }
 
-// NEW: EXCHANGE TAB
+// --- EXCHANGE TAB ---
 function renderExchange(div) {
     div.innerHTML = `
         <div class="p-4 space-y-6 h-full overflow-y-auto bg-slate-50">
@@ -937,12 +878,11 @@ function initBauCua(container) {
 
 // --- ADMIN SYSTEM (FULL FEATURED) ---
 async function renderAdmin(div) {
-    // Thêm try-catch để tránh crash trang nếu API lỗi
     let res = [];
     try {
         const response = await fetch('/api/pillows');
         res = await response.json();
-        if(!Array.isArray(res)) res = []; // Đảm bảo res luôn là mảng
+        if(!Array.isArray(res)) res = [];
     } catch (e) {
         console.error("Lỗi lấy danh sách gối:", e);
         res = [];
@@ -970,7 +910,6 @@ async function renderAdmin(div) {
     `;
     lucide.createIcons();
     
-    // Fill dữ liệu form nếu đang edit
     if(state.adminTab === 'add' && state.editingPillowId) {
         const p = res.find(x => x.id === state.editingPillowId);
         if(p) {
@@ -1068,7 +1007,6 @@ async function handleAddPillow(e) {
         exQty: allowEx ? (parseInt(document.getElementById('ad-ex-qty').value) || 0) : 0
     };
     
-    // Nếu đang sửa thì gửi action edit
     const action = state.editingPillowId ? 'edit' : 'add';
     const res = await apiCall('/api/admin/pillow', {action: action, pillow: newP});
     
@@ -1156,8 +1094,6 @@ async function checkAuth() {
         renderApp();
     }
 }
-
-checkAuth();
 
 function logout() {
     localStorage.removeItem('pgw_user');
