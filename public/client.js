@@ -451,15 +451,16 @@ function initFlappy(container) {
     
     let birdY = 150, velocity = 0, pipes = [], frame = 0, score = 0, playing = false;
     const gravity = 0.25, jump = -4.5;
-    const MAX_SCORE = 367;
+    const MAX_SCORE = 100;
 
+    // --- BIẾN ĐỂ KHÓA FPS (MỚI) ---
     let lastTime = 0;
     const FPS = 60;
-    const FRAME_INTERVAL = 1000 / FPS;
+    const FRAME_INTERVAL = 1000 / FPS; // Khoảng 16.6ms mỗi frame
 
     function reset() { 
         birdY = 150; velocity = 0; pipes = []; frame = 0; score = 0; scoreEl.innerText = 0; 
-        lastTime = performance.now();
+        lastTime = performance.now(); // Reset thời gian
     }
     
     // Sửa hàm loop nhận vào currentTime
@@ -471,10 +472,14 @@ function initFlappy(container) {
 
         if(!document.getElementById('flappy-cvs')) { playing = false; return; }
 
+        // --- KIỂM TRA FPS (MỚI) ---
+        // Tính thời gian trôi qua từ frame trước
         const deltaTime = currentTime - lastTime;
 
+        // Nếu chưa đủ thời gian cho 1 frame (chưa đến 16.6ms) thì bỏ qua, không vẽ
         if (deltaTime < FRAME_INTERVAL) return;
 
+        // Cập nhật lại thời gian, trừ đi phần dư để chuyển động mượt hơn
         lastTime = currentTime - (deltaTime % FRAME_INTERVAL);
         // ---------------------------
 
@@ -514,23 +519,31 @@ function initFlappy(container) {
             if ((50 + 20 > p.x && 50 + 5 < p.x + 40) && (birdY + 5 < p.top || birdY + 20 > p.top + p.gap)) crash = true; 
         });
         
-        if(crash) { endGame(false, Math.floor(score)); return; }
+        if(crash) { endGame(false, Math.floor(score/2)); return; }
     }
 
+    let isSubmitting = false;
+
     async function endGame(win, earned) {
+        if (isSubmitting) return; // Nếu đang gửi coin thì chặn lại ngay
         playing = false;
-        cancelAnimationFrame(activeAnimFrame); // Dừng vòng lặp hẳn
+        cancelAnimationFrame(activeAnimFrame);
         
         if(earned > 0) {
-            // Giả lập check function apiCall tồn tại để tránh lỗi nếu copy thiếu
-            if (typeof apiCall === 'function') {
+            isSubmitting = true; // Khóa lại
+            try {
+                // Gọi API cộng tiền
                 await apiCall('/api/update-coins', {username: state.username, amount: earned});
                 state.coins += earned;
                 showToast(`+${earned} Xu`, 'success');
+            } catch(e) {
+                console.error(e);
+            } finally {
+                isSubmitting = false; // Mở khóa sau khi xong
             }
         }
-        if (typeof playSound === 'function') playSound('gacha-result');
         
+        if (typeof playSound === 'function') playSound('gacha-result');
         document.getElementById('flappy-msg').innerHTML = win ? "CHIẾN THẮNG!" : `Game Over! Điểm: ${score}`;
         btn.innerText = "CHƠI LẠI";
         ui.classList.remove('hidden');
@@ -571,31 +584,61 @@ function initRace(container) {
             <div class="mt-12 bg-slate-800 px-6 py-3 rounded-2xl text-xl font-black tracking-wider border border-slate-700 shadow-inner"><span class="text-slate-400">THỜI GIAN:</span> <span id="race-time" class="text-red-400">10</span>s <br><span class="text-slate-400">CLICK:</span> <span id="race-clicks" class="text-blue-400">0</span></div>
         </div>
     `;
+
+    let isRaceSubmitting = false;
+
     window.startRace = () => {
         if (activeInterval) clearInterval(activeInterval);
-        let time = 10; let clicks = 0;
+        isRaceSubmitting = false;
+        
+        let time = 10; 
+        let clicks = 0;
+        
         document.getElementById('race-menu').classList.add('hidden');
         document.getElementById('race-tap').classList.remove('hidden');
+        document.getElementById('race-result').classList.add('hidden');
         document.getElementById('race-time').innerText = time;
+        document.getElementById('race-clicks').innerText = 0;
+
         const tapBtn = document.getElementById('race-tap');
-        tapBtn.onclick = () => { clicks++; document.getElementById('race-clicks').innerText = clicks; playSound('click'); };
+        
+        tapBtn.onclick = null; 
+        tapBtn.onclick = () => { 
+            if(time > 0) {
+                clicks++; 
+                document.getElementById('race-clicks').innerText = clicks; 
+                playSound('click'); 
+            }
+        };
         
         activeInterval = setInterval(async () => {
             const timeEl = document.getElementById('race-time');
+
             if (!timeEl) { clearInterval(activeInterval); return; }
-            time--; timeEl.innerText = time;
+            
+            time--; 
+            timeEl.innerText = time;
+            
             if(time <= 0) {
                 clearInterval(activeInterval);
                 tapBtn.classList.add('hidden');
+                
+                if (isRaceSubmitting) return;
+                isRaceSubmitting = true;
+
                 document.getElementById('race-result').classList.remove('hidden');
                 document.getElementById('race-final').innerText = clicks;
+                
                 const earned = Math.floor(clicks/5);
                 document.getElementById('race-earned').innerText = earned;
+                
                 if(earned > 0) {
-                    await apiCall('/api/update-coins', {username: state.username, amount: earned});
-                    state.coins += earned;
-                    showToast(`+${earned} Xu`, 'success');
-                    playSound('gacha-result');
+                    try {
+                        await apiCall('/api/update-coins', {username: state.username, amount: earned});
+                        state.coins += earned;
+                        showToast(`+${earned} Xu`, 'success');
+                        playSound('gacha-result');
+                    } catch(e) { console.error(e); }
                 }
             }
         }, 1000);
@@ -625,41 +668,77 @@ function initTaiXiu(container) {
             </div>
         </div>
     `;
+    
     let choice = null;
+    let isRolling = false; // Cờ chặn spam click
+
     window.selectTx = (c) => {
+        if(isRolling) return; // Đang quay thì không cho chọn lại
         choice = c; playSound('click');
         document.getElementById('btn-xiu').className = `flex-1 py-5 rounded-2xl font-black text-2xl border-4 transition ${c === 'XIU' ? 'bg-red-500 border-red-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`;
         document.getElementById('btn-tai').className = `flex-1 py-5 rounded-2xl font-black text-2xl border-4 transition ${c === 'TAI' ? 'bg-blue-500 border-blue-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`;
     };
+
     window.rollTx = async () => {
+        if(isRolling) return; // Chặn double click
+        
         const bet = parseInt(document.getElementById('tx-bet').value) || 0;
         if(bet <= 0 || bet > state.coins) { showToast("Cược lỗi!", "error"); return; }
         if(!choice) { showToast("Chọn TÀI/XỈU đi!", "error"); return; }
         
-        await apiCall('/api/update-coins', {username: state.username, amount: -bet});
-        state.coins -= bet; updateUI();
-
+        // 1. Khóa nút ngay lập tức
+        isRolling = true;
         document.getElementById('tx-roll').disabled = true;
+        document.getElementById('tx-roll').innerText = "...";
+        
+        // 2. Hiệu ứng quay giả (UI)
         [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.add('animate-spin'));
         playSound('gacha-roll');
-        
-        activeTimeout = setTimeout(async () => {
-            if (!document.getElementById('tx-sum')) return;
-            const d = [1,2,3].map(() => Math.ceil(Math.random()*6));
-            d.forEach((v, i) => { const el = document.getElementById(`d${i+1}`); el.innerText = v; el.classList.remove('animate-spin'); });
+
+        try {
+            // 3. GỌI SERVER ĐỂ LẤY KẾT QUẢ (Thay vì tính ở đây)
+            // Bạn cần tạo thêm API /api/taixiu ở server
+            const res = await apiCall('/api/taixiu', { username: state.username, bet: bet, choice: choice });
             
-            const sum = d.reduce((a,b)=>a+b,0);
-            document.getElementById('tx-sum').innerText = `Tổng: ${sum}`;
-            const res = sum >= 11 ? 'TAI' : 'XIU';
-            
-            if(res === choice) { 
-                const won = bet * 2;
-                await apiCall('/api/update-coins', {username: state.username, amount: won});
-                state.coins += won; updateUI();
-                showToast(`THẮNG! +${won} Xu`, "success"); playSound('gacha-result'); 
-            } else { showToast("Thua rồi!", "error"); }
+            // Đợi hiệu ứng quay 1 xíu cho hồi hộp
+            setTimeout(() => {
+                if (!document.getElementById('tx-sum')) return;
+
+                // 4. Hiển thị kết quả từ Server trả về
+                const { dices, sum, winAmount, totalCoins } = res; // Server trả về xúc xắc và số dư mới
+                
+                dices.forEach((v, i) => { 
+                    const el = document.getElementById(`d${i+1}`); 
+                    el.innerText = v; 
+                    el.classList.remove('animate-spin'); 
+                });
+                
+                document.getElementById('tx-sum').innerText = `Tổng: ${sum}`;
+                
+                // 5. Cập nhật tiền thật từ server
+                state.coins = totalCoins; 
+                updateUI();
+
+                if(winAmount > 0) { 
+                    showToast(`THẮNG! +${winAmount} Xu`, "success"); 
+                    playSound('gacha-result'); 
+                } else { 
+                    showToast("Thua rồi!", "error"); 
+                }
+                
+                // Mở khóa
+                isRolling = false;
+                document.getElementById('tx-roll').disabled = false;
+                document.getElementById('tx-roll').innerText = "QUAY";
+                
+            }, 1000);
+
+        } catch (e) {
+            showToast("Lỗi kết nối!", "error");
+            isRolling = false;
             document.getElementById('tx-roll').disabled = false;
-        }, 1000);
+            [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.remove('animate-spin'));
+        }
     };
 }
 
@@ -926,5 +1005,4 @@ function logout() {
     state.isAdmin = false;
     localStorage.removeItem('pgw_user');
     setTab('profile');
-
 }
