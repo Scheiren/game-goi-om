@@ -64,7 +64,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
 
-// 1. Login/Register
+//Login/Register
 app.post('/api/login', async (req, res) => {
     try {
         const { username } = req.body;
@@ -85,7 +85,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// 2. Gacha
+//Gacha
 app.post('/api/gacha', async (req, res) => {
     try {
         const { username } = req.body;
@@ -142,7 +142,7 @@ app.post('/api/gacha', async (req, res) => {
     }
 });
 
-// 3. Burn (Hủy gối lấy code) - FIX CHÍNH
+//Burn (Hủy gối lấy code) - FIX CHÍNH
 app.post('/api/burn', async (req, res) => {
     try {
         const { username, uniqueId } = req.body;
@@ -165,7 +165,7 @@ app.post('/api/burn', async (req, res) => {
     } catch(err) { res.status(500).json({ success:false }); }
 });
 
-// 4. Exchange (Nhập code lấy gối) - FIX CHÍNH
+//Exchange (Nhập code lấy gối) - FIX CHÍNH
 app.post('/api/exchange', async (req, res) => {
     try {
         const { username, code } = req.body;
@@ -199,30 +199,61 @@ app.post('/api/exchange', async (req, res) => {
     } catch(err) { res.status(500).json({ success:false }); }
 });
 
-// 5. Admin Pillow Management - FIX CHÍNH
+//
+app.get('/api/pillows', async (req, res) => {
+    try {
+        let system = await System.findOne({ id: 'main' });
+        
+        // Nếu chưa có dữ liệu trong DB, lấy từ INITIAL_TEMPLATES làm mặc định
+        const data = (system && system.pillows && system.pillows.length > 0) 
+                     ? system.pillows 
+                     : INITIAL_TEMPLATES;
+        
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Không thể lấy danh sách gối" });
+    }
+});
+
+//Admin Pillow Management - FIX CHÍNH
 app.post('/api/admin/pillow', async (req, res) => {
     try {
         const { pillow, action } = req.body;
         let system = await System.findOne({ id: 'main' });
-        if (!system) system = new System({ id: 'main', pillows: INITIAL_TEMPLATES });
+        
+        // Khởi tạo nếu chưa có
+        if (!system) {
+            system = new System({ id: 'main', pillows: INITIAL_TEMPLATES });
+        }
 
         if (action === 'delete') {
             system.pillows = system.pillows.filter(p => p.id !== pillow.id);
         } else if (action === 'edit') {
             const idx = system.pillows.findIndex(p => p.id === pillow.id);
-            if (idx !== -1) system.pillows[idx] = { ...system.pillows[idx], ...pillow };
+            if (idx !== -1) {
+                system.pillows[idx] = { ...system.pillows[idx], ...pillow };
+            }
         } else {
-            pillow.id = Date.now(); // Tạo ID duy nhất
-            system.pillows.unshift(pillow);
+            // Thêm mới
+            const newPillow = {
+                ...pillow,
+                id: pillow.id ? Number(pillow.id) : Date.now()
+            };
+            system.pillows.unshift(newPillow);
         }
         
-        system.markModified('pillows'); // Thông báo cho Mongoose mảng đã thay đổi
+        // QUAN TRỌNG: Mongoose cần cái này để biết mảng Array đã thay đổi
+        system.markModified('pillows'); 
         await system.save();
-        res.json({ success: true });
-    } catch(err) { res.status(500).json({ success:false }); }
+        
+        res.json({ success: true, updatedPillows: system.pillows });
+    } catch(err) { 
+        console.error(err);
+        res.status(500).json({ success: false }); 
+    }
 });
 
-// 6. Check-in
+//Check-in
 app.post('/api/checkin', async (req, res) => {
     try {
         const { username } = req.body;
@@ -239,7 +270,7 @@ app.post('/api/checkin', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-// 7. Update Coins
+//Update Coins
 app.post('/api/update-coins', async (req, res) => {
     try {
         const { username, amount } = req.body;
@@ -250,6 +281,48 @@ app.post('/api/update-coins', async (req, res) => {
         );
         res.json({ success: !!user, newBalance: user?.coins });
     } catch (e) { res.status(500).json({ success: false }); }
+});
+
+//API CLAIM
+app.post('/api/claim', async (req, res) => {
+    try {
+        const { username, uniqueId, info } = req.body;
+
+        const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "Người dùng không tồn tại" });
+        }
+
+        const itemIndex = user.inventory.findIndex(i => i.uniqueId === uniqueId);
+        
+        if (itemIndex > -1) {
+            const claimedItem = user.inventory[itemIndex];
+
+            user.inventory.splice(itemIndex, 1);
+            
+            await user.save();
+
+            console.log(`--- [NEW CLAIM REQUEST] ---`);
+            console.log(`User: ${username}`);
+            console.log(`Item: ${claimedItem.name} (Rarity: ${claimedItem.rarity})`);
+            console.log(`Unique ID: ${uniqueId}`);
+            console.log(`Shipping Info:`, info);
+            console.log(`---------------------------`);
+
+            return res.json({ 
+                success: true, 
+                message: "Gửi yêu cầu nhận quà thành công!" 
+            });
+        } else {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Vật phẩm không tồn tại trong túi đồ" 
+            });
+        }
+    } catch (err) {
+        console.error("Lỗi Claim:", err);
+        res.status(500).json({ success: false, message: "Lỗi hệ thống khi xử lý claim" });
+    }
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
