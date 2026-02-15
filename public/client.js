@@ -48,9 +48,12 @@ function showToast(msg, type='info') {
 }
 
 function cleanupGames() {
-    if (activeInterval) { clearInterval(activeInterval); activeInterval = null; }
-    if (activeTimeout) { clearTimeout(activeTimeout); activeTimeout = null; }
-    if (activeAnimFrame) { cancelAnimationFrame(activeAnimFrame); activeAnimFrame = null; }
+    if (activeInterval) clearInterval(activeInterval);
+    if (activeTimeout) clearTimeout(activeTimeout);
+    if (activeAnimFrame) cancelAnimationFrame(activeAnimFrame);
+    activeInterval = null; 
+    activeTimeout = null; 
+    activeAnimFrame = null;
     state.activeGame = null;
 }
 
@@ -86,7 +89,18 @@ async function login(u, p) {
 
 async function refreshUserData() {
     if(state.username === 'Guest') return;
-    await login(state.username, ''); 
+    const res = await apiCall('/api/login', { username: state.username });
+    if (res && res.success) {
+        state.coins = res.user.coins;
+        state.inventory = res.user.inventory;
+        state.isAdmin = !!(res.user.isAdmin);
+        state.serverInfo = res.serverInfo;
+        
+        localStorage.setItem('pgw_coins', state.coins);
+        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
+        updateUI();
+        // Không gọi renderApp ở đây để tránh reset màn hình gacha khi đang quay
+    }
 }
 
 // --- UI CORE ---
@@ -182,30 +196,34 @@ function renderGacha(div) {
 
 async function doGacha() {
     if(state.coins < GACHA_COST) return showToast("Không đủ xu!", "error");
-    playSound('gacha-roll');
     
+    // UI Loading
     const stage = document.getElementById('gacha-stage');
-    stage.innerHTML = `<div class="w-48 h-64 bg-indigo-600 rounded-xl flex items-center justify-center animate-bounce-crazy shadow-2xl"><i data-lucide="gift" width="80" class="text-white"></i></div>`;
+    stage.innerHTML = `<div class="w-48 h-64 bg-indigo-600 rounded-xl flex items-center justify-center animate-bounce shadow-2xl"><i data-lucide="gift" width="80" class="text-white"></i></div>`;
     lucide.createIcons();
+    
+    playSound('gacha-roll');
 
     const res = await apiCall('/api/gacha', {username: state.username});
     
-    setTimeout(() => {
-        if(res.success) {
-            state.coins = res.coins;
-            state.serverInfo = res.serverInfo || state.serverInfo; // Update server stats
-            state.inventory.unshift(res.item);
-            // persist locally for quick reloads (keeps parity with message.html localStorage)
-            localStorage.setItem('pgw_coins', state.coins);
-            localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
+    if(res.success) {
+        // Cập nhật state trước khi render kết quả
+        state.coins = res.coins;
+        state.serverInfo = res.serverInfo;
+        state.inventory.unshift(res.item);
+        
+        localStorage.setItem('pgw_coins', state.coins);
+        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
+
+        setTimeout(() => {
             playSound('gacha-result');
             renderGachaResult(stage, res.item);
             updateUI();
-        } else {
-            showToast(res.message || "Lỗi Server", "error");
-            renderGacha(document.getElementById('main-content'));
-        }
-    }, 1500);
+        }, 1200);
+    } else {
+        showToast(res.message || "Lỗi Server", "error");
+        renderGacha(document.getElementById('main-content'));
+    }
 }
 
 function renderGachaResult(container, item) {
@@ -954,4 +972,5 @@ function logout() {
     state.isAdmin = false;
     localStorage.removeItem('pgw_user');
     setTab('profile');
+
 }
