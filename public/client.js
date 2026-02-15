@@ -313,32 +313,34 @@ function renderCollection(div) {
                     </h2>
                     
                     <div class="flex gap-2">
-                        <button onclick="toggleSelectionMode()" class="px-3 py-2 rounded-xl border font-bold text-xs flex items-center gap-1 transition ${state.isSelectionMode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}">
+                        <button onclick="toggleSelectionMode()" class="px-3 py-2 rounded-xl border font-bold text-xs flex items-center gap-1 transition shadow-sm ${state.isSelectionMode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-indigo-200'}">
                             <i data-lucide="${state.isSelectionMode ? 'x' : 'check-square'}" width="16"></i>
-                            ${state.isSelectionMode ? 'Hủy Chọn' : 'Chọn Nhiều'}
+                            ${state.isSelectionMode ? 'Hủy' : 'Chọn'}
                         </button>
 
                         ${!state.isSelectionMode ? `
                         <div class="relative group">
                             <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer">
-                                <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[20px] text-right z-10">
-                                    <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨Mới nhất</option>
-                                    <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️Cũ nhất</option>
-                                    <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎Hiếm(EX)</option>
-                                    <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦Thường(F)</option>
+                                <i data-lucide="arrow-up-down" width="16" class="text-indigo-500"></i>
+                                <select onchange="changeSort(this.value)" class="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer border-none p-0 focus:ring-0 appearance-none min-w-[85px] text-right z-10">
+                                    <option value="newest" ${state.sortMode === 'newest' ? 'selected' : ''}>✨ Mới nhất</option>
+                                    <option value="oldest" ${state.sortMode === 'oldest' ? 'selected' : ''}>🕰️ Cũ nhất</option>
+                                    <option value="rare_high" ${state.sortMode === 'rare_high' ? 'selected' : ''}>💎 Hiếm (EX)</option>
+                                    <option value="rare_low" ${state.sortMode === 'rare_low' ? 'selected' : ''}>📦 Thường (F)</option>
                                 </select>
+                                <i data-lucide="chevron-down" width="14" class="text-slate-400 group-hover:text-indigo-500 transition"></i>
                             </div>
                         </div>` : ''}
                     </div>
                 </div>
 
                 ${state.isSelectionMode ? `
-                <div class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100 animate-slide-down">
-                    <span class="text-xs font-bold text-red-600 ml-1">Đã chọn: ${state.selectedItems.length}</span>
+                <div class="flex justify-between items-center bg-red-50 p-2 rounded-lg border border-red-100 animate-slide-down shadow-inner">
+                    <span class="text-xs font-bold text-red-600 ml-1 flex items-center gap-1"><i data-lucide="check-circle" width="14"></i> Đã chọn: ${state.selectedItems.length}</span>
                     <div class="flex gap-2">
-                        <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50">Tất cả</button>
-                        <button onclick="executeBulkBurn()" class="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:bg-red-700 disabled:opacity-50" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
-                            🔥 Đốt Ngay
+                        <button onclick="selectAll()" class="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition shadow-sm">Tất cả</button>
+                        <button onclick="executeBulkBurn()" class="px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-lg shadow-md hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1" ${state.selectedItems.length === 0 ? 'disabled' : ''}>
+                            <i data-lucide="flame" width="14"></i> Đốt Ngay
                         </button>
                     </div>
                 </div>
@@ -350,13 +352,10 @@ function renderCollection(div) {
                 
                 ${sortedList.map(item => {
                     const conf = BASE_RARITY_CONFIG[item.rarity] || BASE_RARITY_CONFIG.F;
-                    const imgContent = item.imgUrl 
-                        ? `<img src="${item.imgUrl}" class="w-full h-full object-contain drop-shadow-md group-hover:scale-110 transition duration-500">` 
-                        : `<span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span>`;
                     
                     const isSelected = state.selectedItems.includes(item.uniqueId);
                     const selectionClass = state.isSelectionMode 
-                        ? (isSelected ? 'ring-4 ring-red-500 border-red-500 transform scale-95 opacity-100' : 'opacity-60 hover:opacity-100') 
+                        ? (isSelected ? 'ring-4 ring-red-500 border-red-500 transform scale-95 opacity-100' : 'opacity-60 hover:opacity-100 grayscale-[0.5]') 
                         : '';
                     
                     const clickAction = state.isSelectionMode 
@@ -367,8 +366,8 @@ function renderCollection(div) {
                         <div onclick="${clickAction}" class="group relative aspect-[3/4] rounded-xl cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${conf.shadow} shadow-md overflow-hidden bg-white border-2 ${conf.border} flex flex-col ${selectionClass}">
                             
                             ${state.isSelectionMode ? `
-                                <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500' : 'bg-slate-300/50'}">
-                                    ${isSelected ? '<i data-lucide="check" width="14" class="text-white"></i>' : ''}
+                                <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500 scale-110' : 'bg-slate-200'}">
+                                    ${isSelected ? '<i data-lucide="check" width="14" class="text-white stroke-[3px]"></i>' : ''}
                                 </div>
                             ` : ''}
 
@@ -378,14 +377,19 @@ function renderCollection(div) {
                                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase tracking-wider">${item.rarity}</span>
                             </div>
 
-                            <div class="flex-1 w-full min-h-0 flex items-center justify-center p-3 pb-0 relative z-10">
-                                ${imgContent}
+                            <div class="flex-1 relative w-full min-h-0 z-10">
+                                ${item.imgUrl 
+                                    ? `<img src="${item.imgUrl}" class="absolute inset-0 w-full h-full object-contain p-4 transition duration-500 group-hover:scale-110">`
+                                    : `<div class="absolute inset-0 flex items-center justify-center"><span class="text-5xl group-hover:scale-125 transition duration-300">🧸</span></div>`
+                                }
                             </div>
 
-                            <div class="w-full h-auto bg-white/95 flex flex-col justify-center items-center py-3 px-2 z-20 border-t border-slate-100 backdrop-blur-sm mt-auto">
-                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-1 w-full px-1">${item.name}</div>
+                            <div class="w-full shrink-0 bg-white/95 flex flex-col justify-center items-center py-2 px-2 z-20 border-t border-slate-100 backdrop-blur-sm">
+                                <div class="font-bold text-xs md:text-sm leading-tight text-slate-800 line-clamp-1 text-center mb-0.5 w-full px-1" title="${item.name}">${item.name}</div>
                                 <div class="text-[9px] text-slate-400 font-mono text-center truncate bg-slate-50 px-2 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
+                            
+                            ${['S','SS','SSS','EX'].includes(item.rarity) ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition duration-700 translate-x-[-100%] group-hover:translate-x-[100%] z-30 pointer-events-none"></div>` : ''}
                         </div>
                     `;
                 }).join('')}
