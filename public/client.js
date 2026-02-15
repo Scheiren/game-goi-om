@@ -310,9 +310,13 @@ function renderCollection(div) {
         'rare_low': '📦 Thường (F)'
     };
 
+    // Hàm nhỏ xử lý chọn sort (được nhúng trực tiếp vào HTML để tránh lỗi scope)
+    // Lưu ý: window.handleSortClick phải được định nghĩa hoặc gọi trực tiếp changeSort
+    const onSortClick = (mode) => `changeSort('${mode}'); document.getElementById('sort-dropdown').classList.add('hidden');`;
+
     div.innerHTML = `
         <div class="h-full flex flex-col bg-slate-100">
-            <div class="px-4 py-3 border-b bg-white shadow-sm z-10 sticky top-0 flex flex-col gap-2">
+            <div class="px-4 py-3 border-b bg-white shadow-sm z-20 sticky top-0 flex flex-col gap-2">
                 <div class="flex justify-between items-center">
                     <h2 class="font-black text-indigo-600 tracking-wide border-b-[3px] border-indigo-600 inline-block pb-1 shrink-0 text-sm md:text-base">
                         KHO ĐỒ (${state.inventory.length})
@@ -325,26 +329,40 @@ function renderCollection(div) {
                         </button>
 
                         ${!state.isSelectionMode ? `
-                        <div class="relative group rounded-xl overflow-hidden bg-white border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer">
-                            
-                            <div class="flex items-center gap-2 px-3 py-2 pointer-events-none">
+                        <div class="relative group">
+                            <button 
+                                onclick="document.getElementById('sort-dropdown').classList.toggle('hidden')" 
+                                class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-all cursor-pointer outline-none focus:ring-2 focus:ring-indigo-100"
+                            >
                                 <i data-lucide="arrow-up-down" width="14" class="text-indigo-500"></i>
                                 <span class="text-xs font-bold text-slate-700 min-w-[70px] text-right truncate">
                                     ${sortLabels[state.sortMode]}
                                 </span>
                                 <i data-lucide="chevron-down" width="14" class="text-slate-400"></i>
-                            </div>
+                            </button>
                             
-                            <select 
-                                onchange="changeSort(this.value)" 
-                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none outline-none border-none m-0 p-0"
-                                style="-webkit-tap-highlight-color: transparent;"
-                            >
-                                <option value="newest">Mới nhất</option>
-                                <option value="oldest">Cũ nhất</option>
-                                <option value="rare_high">Hiếm (EX)</option>
-                                <option value="rare_low">Thường (F)</option>
-                            </select>
+                            <div id="sort-dropdown" class="hidden absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div class="p-1 flex flex-col gap-0.5">
+                                    <button onclick="${onSortClick('newest')}" class="w-full text-left px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 ${state.sortMode === 'newest' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600'}">
+                                        <span>✨</span> Mới nhất
+                                        ${state.sortMode === 'newest' ? '<i data-lucide="check" width="12" class="ml-auto"></i>' : ''}
+                                    </button>
+                                    <button onclick="${onSortClick('oldest')}" class="w-full text-left px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 ${state.sortMode === 'oldest' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600'}">
+                                        <span>🕰️</span> Cũ nhất
+                                        ${state.sortMode === 'oldest' ? '<i data-lucide="check" width="12" class="ml-auto"></i>' : ''}
+                                    </button>
+                                    <div class="h-px bg-slate-100 my-0.5"></div>
+                                    <button onclick="${onSortClick('rare_high')}" class="w-full text-left px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 ${state.sortMode === 'rare_high' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600'}">
+                                        <span>💎</span> Hiếm (EX)
+                                        ${state.sortMode === 'rare_high' ? '<i data-lucide="check" width="12" class="ml-auto"></i>' : ''}
+                                    </button>
+                                    <button onclick="${onSortClick('rare_low')}" class="w-full text-left px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 ${state.sortMode === 'rare_low' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600'}">
+                                        <span>📦</span> Thường (F)
+                                        ${state.sortMode === 'rare_low' ? '<i data-lucide="check" width="12" class="ml-auto"></i>' : ''}
+                                    </button>
+                                </div>
+                                <div onclick="document.getElementById('sort-dropdown').classList.add('hidden')" class="fixed inset-0 z-[-1] cursor-default"></div>
+                            </div>
                         </div>` : ''}
                     </div>
                 </div>
@@ -362,7 +380,7 @@ function renderCollection(div) {
                 ` : ''}
             </div>
 
-            <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 no-scrollbar pb-20">
+            <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 no-scrollbar pb-20 z-0">
                 ${sortedList.length === 0 ? `<div class="col-span-full text-center text-slate-400 mt-10 flex flex-col items-center"><i data-lucide="box" width="48" class="mb-2 opacity-50"></i>Túi đồ trống trơn.</div>` : ''}
                 
                 ${sortedList.map(item => {
@@ -383,30 +401,22 @@ function renderCollection(div) {
 
                     return `
                         <div onclick="${clickAction}" class="relative h-64 rounded-xl cursor-pointer shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col ${wrapperClass}">
-                            
                             ${state.isSelectionMode ? `
                                 <div class="absolute top-2 right-2 z-30 w-6 h-6 rounded-full border-2 border-white shadow-sm flex items-center justify-center transition-colors ${isSelected ? 'bg-red-500' : 'bg-white'}">
                                     ${isSelected ? '<i data-lucide="check" width="14" class="text-white"></i>' : ''}
                                 </div>
                             ` : ''}
-
                             <div class="flex-1 w-full bg-slate-50 relative overflow-hidden border-b border-slate-100">
                                 <div class="absolute inset-0 opacity-20 pointer-events-none ${conf.bg}"></div>
-                                
                                 <div class="absolute top-2 left-2 z-20">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-black shadow-sm ${conf.bg} text-white border border-white/20 uppercase">${item.rarity}</span>
                                 </div>
-
-                                <div class="relative w-full h-full z-10">
-                                    ${imgContent}
-                                </div>
+                                <div class="relative w-full h-full z-10">${imgContent}</div>
                             </div>
-
                             <div class="h-16 w-full flex-none bg-white flex flex-col justify-center items-center px-2 z-20">
                                 <div class="font-bold text-xs text-slate-800 line-clamp-2 text-center leading-tight mb-1" title="${item.name}">${item.name}</div>
                                 <div class="text-[9px] text-slate-400 font-mono bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">#${item.uniqueId}</div>
                             </div>
-                            
                         </div>
                     `;
                 }).join('')}
@@ -415,6 +425,17 @@ function renderCollection(div) {
     `;
     
     lucide.createIcons();
+    
+    if (!window.sortMenuListenerAdded) {
+        window.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('sort-dropdown');
+            const button = e.target.closest('button[onclick*="sort-dropdown"]');
+            if (dropdown && !dropdown.classList.contains('hidden') && !button && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        window.sortMenuListenerAdded = true;
+    }
 }
 
 function itemDetail(uid) {
@@ -1264,6 +1285,7 @@ function logout() {
     setTab('profile');
 
 }
+
 
 
 
