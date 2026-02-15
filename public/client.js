@@ -1,4 +1,3 @@
-// (full file with edits to ensure game flows use server endpoints for results)
 // --- CONFIG & STATE ---
 const BASE_RARITY_CONFIG = {
     E:   { color: 'bg-slate-400', border: 'border-slate-500' },
@@ -429,51 +428,7 @@ function exitGame() {
     renderApp();
 }
 
-// --- GAME SERVER INTEGRATION HELPERS ---
-async function startGameSession(game) {
-    if (!state.username || state.username === 'Guest') {
-        showToast('Bạn cần đăng nhập để chơi', 'error');
-        return null;
-    }
-    const res = await apiCall('/api/game/start', { username: state.username, game });
-    if (res && res.success) return res.token;
-    showToast(res?.message || 'Không thể bắt đầu phiên chơi', 'error');
-    return null;
-}
-
-async function finishGameSession(token, score) {
-    if (!token) return null;
-    const res = await apiCall('/api/game/finish', { username: state.username, token, score });
-    if (res && res.success) {
-        state.coins = res.newBalance;
-        localStorage.setItem('pgw_coins', state.coins);
-        updateUI();
-        showToast(`Thắng ${res.award} xu`, 'success');
-        return res;
-    } else {
-        showToast(res?.message || 'Kết thúc trận lỗi', 'error');
-        return null;
-    }
-}
-
-async function serverBet(game, bet, choice) {
-    if (!state.username || state.username === 'Guest') {
-        showToast('Bạn cần đăng nhập để cược', 'error');
-        return null;
-    }
-    const res = await apiCall('/api/game/bet', { username: state.username, game, bet, choice });
-    if (res && res.success) {
-        state.coins = res.newBalance;
-        localStorage.setItem('pgw_coins', state.coins);
-        updateUI();
-        return res;
-    } else {
-        showToast(res?.message || 'Cược thất bại', 'error');
-        return null;
-    }
-}
-
-// --- 1. FLAPPY BIRD (updated to use server session) ---
+// 1. FLAPPY BIRD
 function initFlappy(container) {
     container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full text-white">
@@ -571,21 +526,14 @@ function initFlappy(container) {
         playing = false;
         cancelAnimationFrame(activeAnimFrame); // Dừng vòng lặp hẳn
         
-        // Use server session if present
-        const token = state.activeGame && state.activeGame.type === 'flappy' ? state.activeGame.token : null;
-        if (token) {
-            await finishGameSession(token, Math.floor(earned));
-        } else {
-            // fallback to conservative local award via server endpoint (negative allowed, positive may be blocked)
-            if(earned > 0 && typeof apiCall === 'function') {
+        if(earned > 0) {
+            // Giả lập check function apiCall tồn tại để tránh lỗi nếu copy thiếu
+            if (typeof apiCall === 'function') {
                 await apiCall('/api/update-coins', {username: state.username, amount: earned});
                 state.coins += earned;
-                localStorage.setItem('pgw_coins', state.coins);
-                updateUI();
                 showToast(`+${earned} Xu`, 'success');
             }
         }
-
         if (typeof playSound === 'function') playSound('gacha-result');
         
         document.getElementById('flappy-msg').innerHTML = win ? "CHIẾN THẮNG!" : `Game Over! Điểm: ${score}`;
@@ -610,16 +558,9 @@ function initFlappy(container) {
     };
     cvs.addEventListener('mousedown', jumpAction); 
     cvs.addEventListener('touchstart', jumpAction);
-
-    // request a server session token when game loads (or when player intends to play)
-    (async () => {
-        const token = await startGameSession('flappy');
-        if (!token) return; // failed to acquire session
-        state.activeGame = { type: 'flappy', token };
-    })();
 }
 
-// --- 2. TURBO CLICK / RACE (updated to use server session) ---
+// 2. TURBO CLICK
 function initRace(container) {
     container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full text-white p-4">
@@ -655,37 +596,18 @@ function initRace(container) {
                 document.getElementById('race-final').innerText = clicks;
                 const earned = Math.floor(clicks/5);
                 document.getElementById('race-earned').innerText = earned;
-
-                // Use server session to finalize and award
-                const token = state.activeGame && state.activeGame.type === 'race' ? state.activeGame.token : null;
-                if (token) {
-                    const r = await finishGameSession(token, clicks);
-                    if (!r || !r.success) {
-                        showToast(r?.message || 'Lỗi khi nhận thưởng', 'error');
-                    }
-                } else {
-                    if(earned > 0) {
-                        await apiCall('/api/update-coins', {username: state.username, amount: earned});
-                        state.coins += earned;
-                        localStorage.setItem('pgw_coins', state.coins);
-                        updateUI();
-                        showToast(`+${earned} Xu`, 'success');
-                        playSound('gacha-result');
-                    }
+                if(earned > 0) {
+                    await apiCall('/api/update-coins', {username: state.username, amount: earned});
+                    state.coins += earned;
+                    showToast(`+${earned} Xu`, 'success');
+                    playSound('gacha-result');
                 }
             }
         }, 1000);
-
-        (async () => {
-            const token = await startGameSession('race');
-            if (!token) return;
-
-            state.activeGame = { type: 'race', token };
-        })();
     };
 }
 
-// --- 3. TÀI XỈU (use server bet API) ---
+// 3. TAI XIU
 function initTaiXiu(container) {
     container.innerHTML = `
         <div class="flex flex-col items-center p-4 text-white h-full justify-center">
@@ -718,53 +640,35 @@ function initTaiXiu(container) {
         const bet = parseInt(document.getElementById('tx-bet').value) || 0;
         if(bet <= 0 || bet > state.coins) { showToast("Cược lỗi!", "error"); return; }
         if(!choice) { showToast("Chọn TÀI/XỈU đi!", "error"); return; }
+        
+        await apiCall('/api/update-coins', {username: state.username, amount: -bet});
+        state.coins -= bet; updateUI();
 
-        // UI spin animation
         document.getElementById('tx-roll').disabled = true;
         [1,2,3].forEach(i => document.getElementById(`d${i}`).classList.add('animate-spin'));
         playSound('gacha-roll');
-
-        // Call server to handle bet + roll
-        const res = await serverBet('taixiu', bet, choice === 'TAI' ? 'tai' : 'xiu');
-        // serverBet updates state.coins and returns result/payout if success
-        if (res && res.success) {
-            // render dice if available
-            if (res.result && res.result.dice) {
-                res.result.dice.forEach((v, i) => {
-                    const el = document.getElementById(`d${i+1}`);
-                    if (el) { el.innerText = v; el.classList.remove('animate-spin'); }
-                });
-                document.getElementById('tx-sum').innerText = `Tổng: ${res.result.sum}`;
-            }
+        
+        activeTimeout = setTimeout(async () => {
+            if (!document.getElementById('tx-sum')) return;
+            const d = [1,2,3].map(() => Math.ceil(Math.random()*6));
+            d.forEach((v, i) => { const el = document.getElementById(`d${i+1}`); el.innerText = v; el.classList.remove('animate-spin'); });
+            
+            const sum = d.reduce((a,b)=>a+b,0);
+            document.getElementById('tx-sum').innerText = `Tổng: ${sum}`;
+            const res = sum >= 11 ? 'TAI' : 'XIU';
+            
+            if(res === choice) { 
+                const won = bet * 2;
+                await apiCall('/api/update-coins', {username: state.username, amount: won});
+                state.coins += won; updateUI();
+                showToast(`THẮNG! +${won} Xu`, "success"); playSound('gacha-result'); 
+            } else { showToast("Thua rồi!", "error"); }
             document.getElementById('tx-roll').disabled = false;
-            // messages handled in serverBet (toast)
-        } else {
-            // fallback: stop animation and re-enable
-            [1,2,3].forEach(i => {
-                const el = document.getElementById(`d${i}`);
-                if (el) { el.classList.remove('animate-spin'); }
-            });
-            document.getElementById('tx-roll').disabled = false;
-        }
-
-        const betForm = container.querySelector('.taixiu-form');
-        if (betForm) {
-            betForm.addEventListener('submit', async (ev) => {
-                ev.preventDefault();
-                const bet = Number(betForm.querySelector('[name="bet"]').value || 0);
-                const choice = betForm.querySelector('[name="choice"]:checked')?.value;
-                if (!bet || !choice) return showToast('Chưa chọn cược hoặc số tiền', 'error');
-
-                const res = await serverBet('taixiu', bet, choice);
-                if (res && res.success) {
-                    showToast(`Kết quả: ${JSON.stringify(res.result)} | Thắng: ${res.payout}`, 'success');
-                }
-            });
-        }
+        }, 1000);
     };
 }
 
-// --- 4. BẦU CUA (use server bet API) ---
+// 4. BAU CUA
 function initBauCua(container) {
     const SYMBOLS = ["🦌", "🎃", "🐓", "🐟", "🦀", "🦐"];
     let bets = [0,0,0,0,0,0];
@@ -782,83 +686,40 @@ function initBauCua(container) {
             <button id="bc-roll" onclick="playBauCua()" class="w-full max-w-sm bg-gradient-to-r from-red-500 to-red-700 text-white font-black text-2xl py-4 rounded-2xl shadow-lg border border-red-400">XÓC ĐĨA</button>
         </div>
     `;
-    function totalPendingBets() { return bets.reduce((a,b)=>a+b,0); }
-
     window.betBauCua = async (idx) => {
-        // reserve locally (do not call server until play) to keep server authoritative on actual deduction
-        const pending = totalPendingBets();
-        if (state.coins >= pending + 10) { 
+        if(state.coins >= 10) { 
+            await apiCall('/api/update-coins', {username: state.username, amount: -10});
+            state.coins -= 10; updateUI();
             bets[idx] += 10; 
             document.getElementById(`bc-bet-${idx}`).innerText = bets[idx]; 
             playSound('click'); 
         } else { showToast("Hết xu!", "error"); }
     };
-    window.playBauCua = async () => {
+    window.playBauCua = () => {
         if(bets.every(b => b === 0)) return showToast("Đặt cược đi!", "error");
         const rollBtn = document.getElementById('bc-roll');
         rollBtn.disabled = true; 
         [1,2,3].forEach(i => document.getElementById(`bc-r${i}`).classList.add('animate-spin'));
         playSound('gacha-roll');
-
-        // Try server multi-bet payload (preferred). Server should handle 'bets' array.
-        const payload = { username: state.username, game: 'baucua', bets: bets };
-        const res = await apiCall('/api/game/bet', payload);
-        if (res && res.success) {
-            // server returned authoritative result and newBalance
-            if (res.result && res.result.rolls) {
-                res.result.rolls.forEach((v, i) => {
-                    const el = document.getElementById(`bc-r${i+1}`);
-                    if (el) { el.innerText = SYMBOLS[v]; el.classList.remove('animate-spin'); }
-                });
-            } else {
-                [1,2,3].forEach(i => document.getElementById(`bc-r${i}`).classList.remove('animate-spin'));
-            }
-            state.coins = res.newBalance;
-            localStorage.setItem('pgw_coins', state.coins);
-            updateUI();
-            if (res.payout && res.payout > 0) { showToast(`Trúng! +${res.payout} Xu`, "success"); playSound('gacha-result'); }
-            else { showToast("Thua!", "error"); }
-        } else {
-            // fallback to local roll when server does not support multi-bet payload
+        
+        activeTimeout = setTimeout(async () => {
+            if (!document.getElementById('bc-roll')) return;
             const r = [0,1,2].map(() => Math.floor(Math.random()*6));
-            r.forEach((v, i) => { const el = document.getElementById(`bc-r${i+1}`); if (el) { el.innerText = SYMBOLS[v]; el.classList.remove('animate-spin'); } });
+            r.forEach((v, i) => { const el = document.getElementById(`bc-r${i+1}`); el.innerText = SYMBOLS[v]; el.classList.remove('animate-spin'); });
+            
             const matches = [0,0,0,0,0,0]; r.forEach(idx => matches[idx]++);
             let win = 0; 
-            bets.forEach((amt, idx) => { if(amt > 0 && matches[idx] > 0) win += amt * matches[idx]; }); // payout equal per match
-            // Attempt to credit via server update (may be restricted in production)
-            if (win > 0) {
-                const credit = await apiCall('/api/update-coins', {username: state.username, amount: win});
-                if (credit && credit.success) {
-                    state.coins = credit.newBalance || state.coins + win;
-                    localStorage.setItem('pgw_coins', state.coins);
-                    updateUI();
-                    showToast(`Trúng! +${win} Xu (fallback)`, "success");
-                    playSound('gacha-result');
-                } else {
-                    showToast('Thắng nhưng không thể cộng xu (server).', 'error');
-                }
-            } else {
-                showToast('Thua!', 'error');
-            }
-        }
-
-        bets = [0,0,0,0,0,0]; for(let i=0; i<6; i++) document.getElementById(`bc-bet-${i}`).innerText = 0;
-        rollBtn.disabled = false;
-
-        const betForm = container.querySelector('.baucua-form');
-        if (betForm) {
-            betForm.addEventListener('submit', async (ev) => {
-                ev.preventDefault();
-                const bet = Number(betForm.querySelector('[name="bet"]').value || 0);
-                const choice = betForm.querySelector('[name="choice"]').value;
-                if (!bet || !choice) return showToast('Chưa chọn cược hoặc số tiền', 'error');
-
-                const res = await serverBet('baucua', bet, choice);
-                if (res && res.success) {
-                    showToast(`Kết quả: ${JSON.stringify(res.result)} | Thắng: ${res.payout}`, 'success');
-                }
-            });
-        }
+            bets.forEach((amt, idx) => { if(amt > 0 && matches[idx] > 0) win += amt + (amt * matches[idx]); });
+            
+            if(win > 0) { 
+                await apiCall('/api/update-coins', {username: state.username, amount: win});
+                state.coins += win; updateUI();
+                showToast(`Trúng! +${win} Xu`, "success"); playSound('gacha-result'); 
+            } else { showToast("Thua!", "error"); }
+            
+            bets = [0,0,0,0,0,0]; for(let i=0; i<6; i++) document.getElementById(`bc-bet-${i}`).innerText = 0;
+            rollBtn.disabled = false;
+        }, 1000);
     };
 }
 
