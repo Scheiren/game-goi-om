@@ -109,11 +109,22 @@ app.post('/api/gacha', async (req, res) => {
     try {
         const { username } = req.body;
         const COST = 100;
-        
+        const MAX_INVENTORY = 200; // Giới hạn túi đồ 200 món
+
         const user = await User.findOne({ username });
-        if (!user || user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ xu" });
+        if (!user) return res.status(404).json({ success: false, message: "Người dùng không tồn tại" });
+        if (user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ xu" });
+
+        if (user.inventory.length >= MAX_INVENTORY) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Túi đồ đã đầy (${MAX_INVENTORY}/${MAX_INVENTORY}). Hãy đốt bớt đồ cũ!` 
+            });
+        }
 
         let system = await System.findOne({ id: 'main' });
+        if (!system) system = await System.create({ id: 'main', pillows: INITIAL_TEMPLATES });
+
         const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
         let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
 
@@ -126,32 +137,66 @@ app.post('/api/gacha', async (req, res) => {
             if (rand < cumulative) { rarity = key; break; }
         }
 
-        if (rarity === 'EX') system.pityCounter = 0;
-        else system.pityCounter += 1;
-        system.totalPulls += 1;
-
         const allTemplates = system.pillows.length > 0 ? system.pillows : INITIAL_TEMPLATES;
-        let validPillows = rarity === 'EX' ? allTemplates.filter(p => p.allowEx) : allTemplates;
+        
+        if (rarity === 'EX') {
+            let exPillows = allTemplates.filter(p => p.allowEx && p.exQty > 0);
+            
+            if (exPillows.length === 0) {
+                rarity = 'SSS';
+            }
+        }
+
+        let validPillows = (rarity === 'EX') 
+            ? allTemplates.filter(p => p.allowEx && p.exQty > 0)
+            : allTemplates;
+
         if (validPillows.length === 0) validPillows = allTemplates;
 
-        const selected = validPillows[Math.floor(Math.random() * validPillows.length)];
+        const selectedTemplate = validPillows[Math.floor(Math.random() * validPillows.length)];
+
+        if (rarity === 'EX') {
+            const templateIdx = system.pillows.findIndex(p => p.id === selectedTemplate.id);
+            if (templateIdx > -1) {
+                system.pillows[templateIdx].exQty -= 1;
+                system.markModified('pillows');
+            }
+            system.pityCounter = 0;
+        } else {
+            system.pityCounter += 1;
+        }
+
         const newItem = {
-            id: selected.id,
-            name: selected.name,
-            imgUrl: selected.imgUrl,
+            id: selectedTemplate.id,
+            name: selectedTemplate.name,
+            imgUrl: selectedTemplate.imgUrl,
             rarity,
             uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
             obtainedAt: Date.now()
         };
 
+        system.totalPulls += 1;
         user.coins -= COST;
         user.inventory.unshift(newItem);
         user.markModified('inventory');
+
         await user.save();
         await system.save();
 
-        res.json({ success: true, item: newItem, coins: user.coins, serverInfo: system });
-    } catch (err) { res.status(500).json({ success: false }); }
+        res.json({ 
+            success: true, 
+            item: newItem, 
+            coins: user.coins, 
+            serverInfo: {
+                totalPulls: system.totalPulls,
+                pityCounter: system.pityCounter
+            }
+        });
+
+    } catch (err) { 
+        console.error("GACHA ERROR:", err);
+        res.status(500).json({ success: false, message: "Lỗi hệ thống khi quay Gacha" }); 
+    }
 });
 
 // 3. BURN
@@ -349,6 +394,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
