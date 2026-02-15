@@ -32,7 +32,9 @@ let state = {
     editingPillowId: null,
     sortMode: 'newest',
     isSelectionMode: false,
-    selectedItems: []
+    selectedItems: [],
+    currentCode: null,      // Lưu mã hiện tại (ví dụ: "GIFT-123")
+    isCodeRedeemed: false
 };
 
 let activeInterval = null, activeTimeout = null, activeAnimFrame = null;
@@ -669,17 +671,32 @@ function renderExchange(div) {
 
 async function handleImport() {
     const input = document.getElementById('import-input');
-    const code = input.value.trim().toUpperCase();
+    const code = input.value.trim();
     if(!code) return showToast("Vui lòng nhập code", "error");
     
-    const res = await apiCall('/api/exchange', {username: state.username, code: code});
-    if(res.success) {
-        state.inventory.unshift(res.item);
-        showToast(`Nhận thành công: ${res.item.name}`, 'success');
-        input.value = '';
-        playSound('gacha-result');
-    } else {
-        showToast(res.message, 'error');
+    const btn = document.querySelector('#import-input + button');
+    const originalText = btn.innerText;
+    btn.innerText = "Đang kiểm tra...";
+    btn.disabled = true;
+
+    try {
+        const res = await apiCall('/api/exchange', {username: state.username, code: code});
+        
+        if(res.success) {
+            state.inventory.unshift(res.item);
+            showToast(`Thành công! Bạn nhận được: ${res.item.name}`, 'success');
+            input.value = '';
+            
+            const stage = document.getElementById('exchange-result-area') || document.body;
+            playSound('gacha-result');
+        } else {
+            showToast(res.message || "Lỗi khi nhập mã", 'error');
+        }
+    } catch (e) {
+        showToast("Lỗi kết nối server", "error");
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 }
 
@@ -1285,7 +1302,6 @@ function logout() {
     setTab('profile');
 
 }
-
 
 
 
