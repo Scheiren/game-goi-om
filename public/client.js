@@ -67,20 +67,30 @@ async function apiCall(endpoint, body) {
 }
 
 async function login(u, p) {
+    // Gọi API với cả username và password
     const res = await apiCall('/api/login', { username: u, password: p });
+
     if (res && res.success) {
+        // Cập nhật State từ dữ liệu Server trả về
         state.username = res.username || (res.user && res.user.username) || u;
-        state.coins = (res.user && res.user.coins) || state.coins;
+        state.coins = (res.user && res.user.coins) !== undefined ? res.user.coins : state.coins;
         state.inventory = (res.user && res.user.inventory) || state.inventory;
-        state.isAdmin = !!((res.user && (res.user.isAdmin || res.user.is_admin)));
+        state.isAdmin = !!(res.user && res.user.isAdmin);
         state.serverInfo = res.serverInfo || state.serverInfo;
+
+        // Lưu vào LocalStorage để duy trì phiên đăng nhập khi F5
         localStorage.setItem('pgw_user', state.username);
         localStorage.setItem('pgw_coins', state.coins);
         localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
-        showToast('Đăng nhập thành công', 'success');
+
+        // Nếu backend trả về message riêng (ví dụ: "Đăng ký thành công"), hãy dùng nó
+        showToast(res.message || 'Đăng nhập thành công', 'success');
+        
         renderApp();
     } else {
-        showToast('Đăng nhập thất bại', 'error');
+        // QUAN TRỌNG: Hiển thị lỗi cụ thể từ Server (như "Mật khẩu không chính xác")
+        const errorMsg = res && res.message ? res.message : 'Đăng nhập thất bại';
+        showToast(errorMsg, 'error');
     }
 }
 

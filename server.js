@@ -15,19 +15,11 @@ mongoose.connect(process.env.MONGO_URI)
 // --- MODELS ---
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
+    password: { type: String, required: true }, // Thêm trường mật khẩu
     coins: { type: Number, default: 1000 },
     isAdmin: { type: Boolean, default: false },
     lastCheckIn: { type: Number, default: 0 },
-    inventory: [
-        {
-            id: Number,
-            name: String,
-            imgUrl: String,
-            rarity: String,
-            uniqueId: String,
-            obtainedAt: Number
-        }
-    ]
+    inventory: []
 });
 const User = mongoose.model('User', UserSchema);
 
@@ -53,9 +45,20 @@ const BASE_RARITY_CONFIG = {
 };
 
 const INITIAL_TEMPLATES = [
-    { id: 1, name: "Gối Bông Gòn", imgUrl: "", note: "Cơ bản", allowEx: false },
-    { id: 14, name: "Giấc Mơ Vũ Trụ", imgUrl: "", note: "Limited Edition", allowEx: true },
-    // ... Thêm các item khác vào đây nếu muốn hardcode
+    { id: 1, name: "Gối Bông Gòn", imgUrl: "", note: "Cơ bản", allowEx: false, exQty: 0 },
+    { id: 2, name: "Gối Len Cũ", imgUrl: "", note: "Cơ bản", allowEx: false, exQty: 0 },
+    { id: 3, name: "Gối Kê Cổ", imgUrl: "", note: "Du lịch", allowEx: false, exQty: 0 },
+    { id: 4, name: "Gối Ôm Dài", imgUrl: "", note: "Phổ biến", allowEx: false, exQty: 0 },
+    { id: 5, name: "Lông Vũ Mềm", imgUrl: "", note: "Cao cấp", allowEx: false, exQty: 0 },
+    { id: 6, name: "Cao Su Non", imgUrl: "", note: "Y tế", allowEx: false, exQty: 0 },
+    { id: 7, name: "Gel Mát Lạnh", imgUrl: "", note: "Mùa hè", allowEx: false, exQty: 0 },
+    { id: 8, name: "Khách Sạn 5 Sao", imgUrl: "", note: "Sang trọng", allowEx: false, exQty: 0 },
+    { id: 9, name: "Vỏ Lụa Tơ Tằm", imgUrl: "", note: "Quý tộc", allowEx: false, exQty: 0 },
+    { id: 10, name: "Dakimakura Anime", imgUrl: "", note: "Otaku", allowEx: false, exQty: 0 },
+    { id: 11, name: "Lông Ngỗng", imgUrl: "", note: "Siêu nhẹ", allowEx: false, exQty: 0 },
+    { id: 12, name: "Chỉ Vàng Kim", imgUrl: "", note: "Đại gia", allowEx: false, exQty: 0 },
+    { id: 13, name: "Nhung Hoàng Gia", imgUrl: "", note: "Hoàng cung", allowEx: false, exQty: 0 },
+    { id: 14, name: "Giấc Mơ Vũ Trụ", imgUrl: "", note: "Limited Edition", allowEx: true, exQty: 5 },
 ];
 
 // --- MIDDLEWARE ---
@@ -67,20 +70,58 @@ app.use(express.static(path.join(__dirname, 'public')));
 //Login/Register
 app.post('/api/login', async (req, res) => {
     try {
-        const { username } = req.body;
-        if (!username) return res.status(400).json({ success: false, message: 'Thiếu username' });
+        const { username, password } = req.body;
 
-        let user = await User.findOne({ username });
-        if (!user) {
-            const isFirstUser = (await User.countDocuments()) === 0;
-            user = await User.create({ username, isAdmin: isFirstUser });
+        // Kiểm tra đầu vào
+        if (!username || !password) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Vui lòng nhập cả tên đăng nhập và mật khẩu' 
+            });
         }
 
-        let system = await System.findOne({ id: 'main' });
-        if (!system) system = await System.create({ id: 'main', pillows: INITIAL_TEMPLATES });
+        let user = await User.findOne({ username });
 
-        res.json({ success: true, user, serverInfo: system });
+        if (!user) {
+            // --- LOGIC ĐĂNG KÝ (Nếu user chưa tồn tại) ---
+            const hashedPassword = await bcrypt.hash(password, 10); // Mã hóa mật khẩu
+            const isFirstUser = (await User.countDocuments()) === 0;
+            
+            user = await User.create({ 
+                username, 
+                password: hashedPassword, 
+                isAdmin: isFirstUser 
+            });
+
+            // Lấy thông tin server để trả về
+            let system = await System.findOne({ id: 'main' });
+            return res.json({ 
+                success: true, 
+                message: "Đăng ký tài khoản mới thành công",
+                user, 
+                serverInfo: system 
+            });
+        } else {
+            // --- LOGIC ĐĂNG NHẬP (Nếu user đã tồn tại) ---
+            const isMatch = await bcrypt.compare(password, user.password);
+            
+            if (!isMatch) {
+                return res.status(401).json({ 
+                    success: false, 
+                    message: 'Mật khẩu không chính xác!' 
+                });
+            }
+
+            let system = await System.findOne({ id: 'main' });
+            return res.json({ 
+                success: true, 
+                message: "Đăng nhập thành công",
+                user, 
+                serverInfo: system 
+            });
+        }
     } catch (err) {
+        console.error(err);
         res.status(500).json({ success: false, message: 'Lỗi Server' });
     }
 });
