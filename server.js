@@ -247,12 +247,12 @@ app.post('/api/exchange', async (req, res) => {
     try {
         const { username, code } = req.body;
         
-        if(!code) return res.status(400).json({success: false, message: "Chưa nhập mã!"});
+        if(!code) return res.status(400).json({success: false, message: "Vui lòng nhập mã code!"});
 
         const giftCode = await GiftCode.findOneAndDelete({ code: code.trim() });
 
         if (!giftCode) {
-            return res.json({ success: false, message: "Mã này không tồn tại hoặc đã có người sử dụng!" });
+            return res.json({ success: false, message: "Mã quà tặng không tồn tại hoặc đã được sử dụng!" });
         }
 
         const system = await System.findOne({ id: 'main' });
@@ -260,7 +260,7 @@ app.post('/api/exchange', async (req, res) => {
         const template = allItems.find(p => p.id === giftCode.itemTemplateId);
 
         if (!template) {
-             return res.json({ success: false, message: "Vật phẩm trong mã này bị lỗi hệ thống!" });
+            return res.json({ success: false, message: "Vật phẩm trong mã này bị lỗi hệ thống." });
         }
 
         const newItem = {
@@ -401,3 +401,4 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
