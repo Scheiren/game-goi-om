@@ -208,7 +208,7 @@ app.post('/api/burn', async (req, res) => {
                     generatedBy: username
                 });
             } else {
-                 return res.status(400).json({message: "Không thể burn item này"});
+                 // return res.status(400).json({message: "Không thể burn item này"});
             }
 
             user.inventory.splice(idx, 1);
@@ -401,4 +401,5 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
