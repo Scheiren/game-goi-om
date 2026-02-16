@@ -244,18 +244,20 @@ app.post('/api/exchange', async (req, res) => {
         
         if(!code) return res.status(400).json({success: false, message: "Vui lòng nhập mã code!"});
 
-        const giftCode = await GiftCode.findOneAndDelete({ code: code.trim() });
+        const giftCode = await GiftCode.findOne({ code: code.trim(), isUsed: false });
 
         if (!giftCode) {
             return res.json({ success: false, message: "Mã quà tặng không tồn tại hoặc đã được sử dụng!" });
         }
 
+
         const system = await System.findOne({ id: 'main' });
         const allItems = (system && system.pillows) ? system.pillows : INITIAL_TEMPLATES;
-        const template = allItems.find(p => p.id === giftCode.itemTemplateId);
+        
+        const template = allItems.find(p => p.id == giftCode.itemTemplateId);
 
         if (!template) {
-            return res.json({ success: false, message: "Vật phẩm trong mã này bị lỗi hệ thống." });
+            return res.json({ success: false, message: "Vật phẩm trong mã này bị lỗi hệ thống (ID không khớp)." });
         }
 
         const newItem = {
@@ -271,6 +273,8 @@ app.post('/api/exchange', async (req, res) => {
             { username: username }, 
             { $push: { inventory: { $each: [newItem], $position: 0 } } }
         );
+
+        await GiftCode.deleteOne({ _id: giftCode._id });
 
         return res.json({ success: true, item: newItem });
 
@@ -392,6 +396,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
