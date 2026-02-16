@@ -34,14 +34,47 @@ let state = {
     isSelectionMode: false,
     selectedItems: [],
     currentCode: null,
-    isCodeRedeemed: false
+    isCodeRedeemed: false,
+    onlineCount: 1
 };
 
-let activeInterval = null, activeTimeout = null, activeAnimFrame = null;
+let activeInterval = null, activeTimeout = null, activeAnimFrame = null, pingInterval = null;
 
 // ==========================================
 // 2. CÁC HÀM TIỆN ÍCH (UTILS)
 // ==========================================
+
+function startHeartbeat() {
+    if (pingInterval) clearInterval(pingInterval);
+    
+    // Hàm gọi API
+    const doPing = async () => {
+        if(state.username === 'Guest') return;
+        const res = await apiCall('/api/ping', {});
+        if (res && res.success) {
+            updateOnlineCounter(res.online);
+        }
+    };
+
+    doPing();
+    pingInterval = setInterval(doPing, 15000);
+}
+
+function updateOnlineCounter(count) {
+    state.onlineCount = count;
+
+    const el = document.getElementById('online-count-display');
+    if (el) {
+        el.innerHTML = `
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span>${count} Online</span>
+        `;
+    }
+}
+
 function playSound(id) {
     const el = document.getElementById(`snd-${id}`);
     if(el) { 
@@ -195,6 +228,19 @@ function renderApp() {
 
     content.innerHTML = '';
     updateUI();
+
+    const currentOnline = state.onlineCount || 1; 
+    
+    content.innerHTML += `
+        <div id="online-count-display" class="absolute top-3 left-3 z-50 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold border border-white/10 flex items-center gap-2 shadow-lg transition-all hover:bg-black/80 cursor-default select-none">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span>${currentOnline} Online</span>
+        </div>
+    `;
+    // ============================================================
 
     switch(state.tab) {
         case 'gacha': renderGacha(content); break;
@@ -1352,6 +1398,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
