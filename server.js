@@ -334,21 +334,24 @@ app.post('/api/exchange', async (req, res) => {
         const { username, code } = req.body;
         if(!code) return res.status(400).json({success: false, message: "Vui lòng nhập code"});
         
-        const giftCode = await GiftCode.findOne({ code: code.trim() });
+        const cleanCode = code.trim();
+
+        const giftCode = await GiftCode.findOneAndDelete({ code: cleanCode });
 
         if (!giftCode) {
-            return res.json({ success: false, message: "Mã quà tặng không tồn tại!" });
-        }
-
-        if (giftCode.isUsed) {
-            return res.json({ success: false, message: "Mã này đã được sử dụng rồi!" });
+            return res.json({ success: false, message: "Mã quà tặng không tồn tại hoặc đã được sử dụng!" });
         }
 
         const system = await System.findOne({ id: 'main' });
-        const allTemplates = system.pillows.length > 0 ? system.pillows : INITIAL_TEMPLATES;
+        const allTemplates = (system && system.pillows && system.pillows.length > 0) 
+                             ? system.pillows 
+                             : INITIAL_TEMPLATES;
+        
         const template = allTemplates.find(t => t.id === giftCode.itemTemplateId);
 
-        if (!template) return res.json({ success: false, message: "Loại vật phẩm này đã bị xóa khỏi hệ thống." });
+        if (!template) {
+            return res.json({ success: false, message: "Vật phẩm của code này không còn tồn tại trong hệ thống." });
+        }
 
         const newItem = {
             id: template.id,
@@ -364,12 +367,8 @@ app.post('/api/exchange', async (req, res) => {
             { $push: { inventory: { $each: [newItem], $position: 0 } } }
         );
 
-        // ĐÁNH DẤU MÃ LÀ ĐÃ DÙNG
-        giftCode.isUsed = true;
-        giftCode.usedBy = username;
-        await giftCode.save();
-
         return res.json({ success: true, item: newItem });
+
     } catch(err) { 
         console.error(err);
         res.status(500).json({ success:false, message: "Lỗi hệ thống" }); 
@@ -447,6 +446,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
