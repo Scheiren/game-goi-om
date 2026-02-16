@@ -10,6 +10,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || "bi_mat_khong_the_bat_mi_123456";
 const MAX_INVENTORY_SIZE = 200;
+const userCooldowns = {};
 
 // --- CẤU HÌNH DATABASE ---
 mongoose.connect(process.env.MONGO_URI)
@@ -327,58 +328,35 @@ app.get('/api/user/codes', async (req, res) => {
 });
 
 //EXCHANGE
-app.post('/api/exchange', async (req, res) => {
+app.post('/api/update-coins', verifyToken, async (req, res) => {
     try {
-        const { username, code } = req.body;
-
-        const user = await User.findOne({ username });
-        if (!user) return res.status(404).json({success: false, message: "User không tồn tại"});
-
-        if (user.inventory.length >= MAX_INVENTORY_SIZE) {
-            return res.json({ 
-                success: false, 
-                message: "Túi đồ đầy! Không thể nhận thêm quà." 
-            });
-        }
-
-        const giftCode = await GiftCode.findOne({ code: code.trim(), isUsed: false });
-
-        if (!giftCode) {
-            return res.json({ success: false, message: "Mã quà tặng không tồn tại hoặc đã được sử dụng!" });
-        }
-
-
-        const system = await System.findOne({ id: 'main' });
-        const allItems = (system && system.pillows) ? system.pillows : INITIAL_TEMPLATES;
+        const username = req.user.username; 
+        const now = Date.now();
         
-        const template = allItems.find(p => p.id == giftCode.itemTemplateId);
-
-        if (!template) {
-            return res.json({ success: false, message: "Vật phẩm trong mã này bị lỗi hệ thống (ID không khớp)." });
+        if (userCooldowns[username] && now - userCooldowns[username] < 1000) {
+            return res.json({ success: false, message: "Thao tác quá nhanh!" });
         }
+        
+        let { amount } = req.body;
+        
+        let safeAmount = parseInt(amount); 
+        
+        if (isNaN(safeAmount) || safeAmount <= 0) return res.json({ success: false });
 
-        const newItem = {
-            id: template.id,
-            name: template.name,
-            imgUrl: template.imgUrl,
-            rarity: giftCode.rarity,
-            uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
-            obtainedAt: Date.now()
-        };
-
-        await User.findOneAndUpdate(
-            { username: username }, 
-            { $push: { inventory: { $each: [newItem], $position: 0 } } }
+        if (safeAmount > 1000) {
+            safeAmount = 1000;
+        }
+        
+        userCooldowns[username] = now;
+        
+        const user = await User.findOneAndUpdate(
+            { username }, 
+            { $inc: { coins: safeAmount } }, 
+            { returnDocument: 'after' }
         );
-
-        await GiftCode.deleteOne({ _id: giftCode._id });
-
-        return res.json({ success: true, item: newItem });
-
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ success: false, message: "Lỗi Server" });
-    }
+        
+        res.json({ success: !!user, newBalance: user?.coins });
+    } catch (e) { res.status(500).json({ success: false }); }
 });
 
 app.post('/api/burn-batch', async (req, res) => {
@@ -507,6 +485,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
