@@ -78,7 +78,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
 
-// 1. LOGIN
+//LOGIN
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -103,7 +103,7 @@ app.post('/api/login', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: 'Lỗi Server' }); }
 });
 
-// 2. GACHA
+//GACHA
 app.post('/api/gacha', async (req, res) => {
     try {
         const { username } = req.body;
@@ -171,7 +171,7 @@ app.post('/api/gacha', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-// 3. BURN
+//BURN
 app.post('/api/burn', async (req, res) => {
     try {
         const { username, uniqueId } = req.body;
@@ -190,13 +190,14 @@ app.post('/api/burn', async (req, res) => {
                     let system = await System.findOne({ id: 'main' });
                     const tIdx = system.pillows.findIndex(p => p.id === item.id);
                     if (tIdx > -1) {
-                        // system.pillows[tIdx].exQty += 1; 
+                         // system.pillows[tIdx].exQty += 1;
                         system.markModified('pillows');
                         await system.save();
                     }
                 }
 
                 const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+                // Format: PIL-{ID}-{RARITY}-{RANDOM}{TIME}
                 codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${Date.now().toString().slice(-4)}`;
                 
                 await GiftCode.create({
@@ -206,6 +207,8 @@ app.post('/api/burn', async (req, res) => {
                     isUsed: false,
                     generatedBy: username
                 });
+            } else {
+                 return res.status(400).json({message: "Không thể burn item này"});
             }
 
             user.inventory.splice(idx, 1);
@@ -221,16 +224,15 @@ app.post('/api/burn', async (req, res) => {
     }
 });
 
-//GET CODES
+//DANH SÁCH CODE
 app.get('/api/user/codes', async (req, res) => {
     try {
         const { username } = req.query;
         if (!username) return res.json({ success: false, data: [] });
 
-        // Tìm các code do user này tạo (generatedBy), chưa được sử dụng (isUsed: false)
         const codes = await GiftCode.find({ 
             generatedBy: username, 
-            isUsed: false 
+            isUsed: false
         }).sort({ createdAt: -1 });
 
         res.json({ success: true, data: codes });
@@ -240,95 +242,7 @@ app.get('/api/user/codes', async (req, res) => {
     }
 });
 
-//BURN BATCH --change to DELETE BATCH now
-app.post('/api/burn-batch', async (req, res) => {
-    try {
-        const { username, uniqueIds } = req.body; 
-        const user = await User.findOne({ username });
-        if (!user) return res.status(404).json({ success: false });
-
-        const itemsToBurn = user.inventory.filter(i => uniqueIds.includes(i.uniqueId));
-        if (itemsToBurn.length === 0) return res.json({ success: false });
-
-        let system = await System.findOne({ id: 'main' });
-        let generatedCodes = [];
-        let giftCodeDocs = [];
-
-        itemsToBurn.forEach(item => {
-            if (item.rarity === 'EX') {
-                const tIdx = system.pillows.findIndex(p => p.id === item.id);
-
-                const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-                const timestamp = Date.now().toString().slice(-5);
-                const codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${timestamp}`;
-                
-                generatedCodes.push(codeStr);
-                giftCodeDocs.push({
-                    code: codeStr,
-                    itemTemplateId: item.id,
-                    rarity: item.rarity,
-                    isUsed: false,
-                    generatedBy: username
-                });
-            }
-        });
-
-        if (giftCodeDocs.length > 0) {
-            await GiftCode.insertMany(giftCodeDocs);
-            system.markModified('pillows'); // Đánh dấu mảng pillows đã thay đổi để lưu
-            await system.save();
-        }
-
-        user.inventory = user.inventory.filter(i => !uniqueIds.includes(i.uniqueId));
-        user.markModified('inventory');
-        await user.save();
-
-        return res.json({ success: true, codes: generatedCodes });
-    } catch(err) { res.status(500).json({ success: false }); }
-});
-// app.post('/api/burn-batch', async (req, res) => {
-//     try {
-//         const { username, uniqueIds } = req.body; 
-//         if (!Array.isArray(uniqueIds) || uniqueIds.length === 0) return res.status(400).json({ success: false });
-
-//         const user = await User.findOne({ username });
-//         if (!user) return res.status(404).json({ success: false });
-
-//         const itemsToBurn = user.inventory.filter(i => uniqueIds.includes(i.uniqueId));
-//         if (itemsToBurn.length === 0) return res.json({ success: false, message: "Không có item hợp lệ" });
-
-//         let generatedCodes = [];
-//         let giftCodeDocs = [];
-
-//         itemsToBurn.forEach(item => {
-//             const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-//             const timestamp = Date.now().toString().slice(-5); // Lấy 5 số cuối time cho khác biệt
-//             const codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${timestamp}`;
-            
-//             generatedCodes.push(codeStr);
-//             giftCodeDocs.push({
-//                 code: codeStr,
-//                 itemTemplateId: item.id,
-//                 rarity: item.rarity,
-//                 isUsed: false,
-//                 generatedBy: username
-//             });
-//         });
-
-//         await GiftCode.insertMany(giftCodeDocs);
-
-//         user.inventory = user.inventory.filter(i => !uniqueIds.includes(i.uniqueId));
-//         user.markModified('inventory');
-//         await user.save();
-
-//         return res.json({ success: true, codes: generatedCodes });
-//     } catch(err) { 
-//         console.error(err);
-//         res.status(500).json({ success: false }); 
-//     }
-// });
-
-// 5. EXCHANGE
+//EXCHANGE
 app.post('/api/exchange', async (req, res) => {
     try {
         const { username, code } = req.body;
@@ -342,10 +256,12 @@ app.post('/api/exchange', async (req, res) => {
         }
 
         const system = await System.findOne({ id: 'main' });
-        const allItems = system?.pillows || INITIAL_TEMPLATES;
+        const allItems = (system && system.pillows) ? system.pillows : INITIAL_TEMPLATES;
         const template = allItems.find(p => p.id === giftCode.itemTemplateId);
 
-        if (!template) return res.json({ success: false, message: "Vật phẩm lỗi!" });
+        if (!template) {
+             return res.json({ success: false, message: "Vật phẩm trong mã này bị lỗi hệ thống!" });
+        }
 
         const newItem = {
             id: template.id,
@@ -368,6 +284,51 @@ app.post('/api/exchange', async (req, res) => {
         res.status(500).json({ success: false, message: "Lỗi Server" });
     }
 });
+
+app.post('/api/burn-batch', async (req, res) => {
+    try {
+        const { username, uniqueIds } = req.body; 
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ success: false });
+
+        const itemsToBurn = user.inventory.filter(i => uniqueIds.includes(i.uniqueId));
+        if (itemsToBurn.length === 0) return res.json({ success: false, message: "Không tìm thấy vật phẩm" });
+
+        /*
+        let generatedCodes = [];
+        let giftCodeDocs = [];
+
+        itemsToBurn.forEach(item => {
+            if (['SSS', 'EX'].includes(item.rarity)) {
+                const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const timestamp = Date.now().toString().slice(-5);
+                const codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${timestamp}`;
+                
+                generatedCodes.push(codeStr);
+                giftCodeDocs.push({
+                    code: codeStr,
+                    itemTemplateId: item.id,
+                    rarity: item.rarity,
+                    isUsed: false,
+                    generatedBy: username
+                });
+            }
+        });
+
+        if (giftCodeDocs.length > 0) {
+            await GiftCode.insertMany(giftCodeDocs);
+        }
+        */
+
+        user.inventory = user.inventory.filter(i => !uniqueIds.includes(i.uniqueId));
+        user.markModified('inventory');
+        await user.save();
+
+        return res.json({ success: true });
+    } catch(err) { res.status(500).json({ success: false }); }
+});
+
+// --- CÁC API KHÁC (GET INFO, ADMIN...) ---
 
 app.get('/api/pillows', async (req, res) => {
     try {
@@ -421,6 +382,7 @@ app.post('/api/update-coins', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
+//API Claim
 app.post('/api/claim', async (req, res) => {
     try {
         const { username, uniqueId, info } = req.body;
@@ -438,19 +400,4 @@ app.post('/api/claim', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
-
-
-
-
-
-
-
-
-
-
-
-
-
-
