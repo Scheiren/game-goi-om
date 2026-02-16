@@ -260,32 +260,53 @@ function renderApp() {
 
 // --- GACHA ---
 function renderGacha(div) {
-    const pityBonus = Math.floor(state.serverInfo.pityCounter / 200) * 0.001;
+    const svInfo = state.serverInfo || {}; 
+    
+    const pityCount = (typeof svInfo.pityCounter === 'number') ? svInfo.pityCounter : 0;
+    const totalPulls = (typeof svInfo.totalPulls === 'number') ? svInfo.totalPulls : 0;
+
+    const pityBonus = Math.floor(pityCount / 200) * 0.001;
     let currentExChance = (0.001 + pityBonus);
     if(currentExChance > 0.1) currentExChance = 0.1;
-    const pullsToNextPity = 200 - (state.serverInfo.pityCounter % 200);
+    
+    const pullsToNextPity = 200 - (pityCount % 200);
 
     div.innerHTML = `
-        <div id="gacha-stage" class="flex flex-col items-center justify-center h-full space-y-6 p-4">
+        <div id="gacha-stage" class="flex flex-col items-center justify-center h-full space-y-6 p-4 pb-24 overflow-y-auto no-scrollbar">
+            
             ${state.isAdmin ? `
-            <div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-sm border border-indigo-200 text-center w-full max-w-xs shadow-sm">
-                <div class="font-bold flex items-center justify-center gap-1 mb-1"><i data-lucide="activity" width="16"></i> Server Pity System (Admin)</div>
-                Tỉ lệ ra EX: <span class="font-black text-red-600">${(currentExChance*100).toFixed(2)}%</span> | Pity sau: ${pullsToNextPity}
-                <div class="text-[10px] text-indigo-400 mt-1">Total Pulls: ${state.serverInfo.totalPulls} | Pity Counter: ${state.serverInfo.pityCounter}</div>
+            <div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-sm border border-indigo-200 text-center w-full max-w-xs shadow-sm z-10">
+                <div class="font-bold flex items-center justify-center gap-1 mb-1">
+                    <i data-lucide="activity" width="16"></i> Server Pity (Admin)
+                </div>
+                Tỉ lệ ra EX: <span class="font-black text-red-600">${(currentExChance*100).toFixed(2)}%</span>
+                <br>
+                Pity sau: <b>${pullsToNextPity}</b> lượt
+                <div class="text-[10px] text-indigo-400 mt-1 border-t border-indigo-200 pt-1">
+                    Total Pulls: ${totalPulls} | Counter: ${pityCount}
+                </div>
             </div>
             ` : ''}
 
-            <div class="text-center space-y-2">
+            <div class="text-center space-y-2 z-10">
                 <h2 class="text-3xl font-black text-indigo-900 drop-shadow-sm">Túi Mù Gối Ôm</h2>
-                <p class="text-indigo-600 font-bold bg-white inline-block px-3 py-1 rounded-full shadow-sm">Giá: ${GACHA_COST} Xu</p>
+                <div class="text-indigo-600 font-bold bg-white inline-block px-4 py-1.5 rounded-full shadow-sm border border-indigo-100">
+                    Giá: ${GACHA_COST} Xu
+                </div>
             </div>
-            <button onclick="doGacha()" class="w-48 h-64 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-[0_10px_20px_rgba(99,102,241,0.4)] border-4 border-indigo-300 flex flex-col items-center justify-center transform transition hover:scale-105 active:scale-95">
-                <i data-lucide="gift" width="72" height="72" class="text-white mb-4 drop-shadow-md"></i>
-                <span class="text-white font-black text-2xl tracking-wide">MỞ NGAY</span>
+
+            <button onclick="doGacha()" class="relative group w-48 h-64 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-[0_10px_20px_rgba(99,102,241,0.4)] border-4 border-indigo-300 flex flex-col items-center justify-center transform transition hover:scale-105 active:scale-95 z-10">
+                <div class="absolute inset-0 bg-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition"></div>
+                <i data-lucide="gift" width="72" height="72" class="text-white mb-4 drop-shadow-md animate-bounce-crazy"></i>
+                <span class="text-white font-black text-2xl tracking-wide drop-shadow-md">MỞ NGAY</span>
             </button>
-            <p class="text-xs text-slate-400 mt-4">Tổng lượt quay server: ${state.serverInfo.totalPulls}</p>
+
+            <p class="text-xs text-slate-400 mt-4 font-medium bg-slate-100/50 px-3 py-1 rounded-full">
+                Server Pulls: ${totalPulls.toLocaleString()}
+            </p>
         </div>
     `;
+    lucide.createIcons();
 }
 
 async function doGacha() {
@@ -1399,6 +1420,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
