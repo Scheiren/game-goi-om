@@ -7,6 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || "bi_mat_khong_the_bat_mi_123456";
 
 // --- CẤU HÌNH DATABASE ---
 mongoose.connect(process.env.MONGO_URI)
@@ -76,6 +78,26 @@ const INITIAL_TEMPLATES = [
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Lấy token từ header "Bearer <token>"
+
+    if (!token) return res.status(401).json({ success: false, message: "Vui lòng đăng nhập!" });
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(403).json({ success: false, message: "Phiên đăng nhập hết hạn!" });
+        req.user = decoded; // Lưu thông tin user đã giải mã vào biến req
+        next();
+    });
+};
+
+const verifyAdmin = (req, res, next) => {
+    if (!req.user || !req.user.isAdmin) {
+        return res.status(403).json({ success: false, message: "Bạn không có quyền Admin!" });
+    }
+    next();
+};
+
 // --- API ENDPOINTS ---
 
 //LOGIN
@@ -92,136 +114,93 @@ app.post('/api/login', async (req, res) => {
             const hashedPassword = await bcrypt.hash(password, 10);
             const isFirstUser = (await User.countDocuments()) === 0;
             user = await User.create({ username, password: hashedPassword, isAdmin: isFirstUser });
-            const uObj = user.toObject(); delete uObj.password;
-            return res.json({ success: true, message: "Đăng ký thành công", user: uObj, serverInfo: system });
         } else {
             const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) return res.status(401).json({ success: false, message: 'Sai mật khẩu!' });
-            const uObj = user.toObject(); delete uObj.password;
-            return res.json({ success: true, message: "Đăng nhập thành công", user: uObj, serverInfo: system });
         }
+
+        const token = jwt.sign(
+            { id: user._id, username: user.username, isAdmin: user.isAdmin },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        const uObj = user.toObject(); 
+        delete uObj.password;
+
+        return res.json({ 
+            success: true, 
+            message: "Đăng nhập thành công", 
+            token: token,
+            user: uObj, 
+            serverInfo: system 
+        });
+
     } catch (err) { res.status(500).json({ success: false, message: 'Lỗi Server' }); }
 });
 
 //GACHA
-app.post('/api/gacha', async (req, res) => {
+app.post('/api/gacha', verifyToken, async (req, res) => {
     try {
-        const { username } = req.body;
+        const username = req.user.username;
         const COST = 100;
         const user = await User.findOne({ username });
         if (!user || user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ xu" });
-
+        
         let system = await System.findOne({ id: 'main' });
         const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
         let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
-
         const RARITY_ORDER = ['EX', 'SSS', 'SS', 'S', 'A', 'B', 'C', 'D', 'F'];
-        let rarity = 'F';
-        const rand = Math.random();
-        let cumulative = 0;
-
+        let rarity = 'F'; const rand = Math.random(); let cumulative = 0;
         for (const key of RARITY_ORDER) {
             const chance = (key === 'EX') ? exChance : BASE_RARITY_CONFIG[key].baseChance;
-            cumulative += chance;
-            if (rand < cumulative) { rarity = key; break; }
+            cumulative += chance; if (rand < cumulative) { rarity = key; break; }
         }
-
         const allTemplates = system.pillows.length > 0 ? system.pillows : INITIAL_TEMPLATES;
-
         if (rarity === 'EX') {
             let exPillows = allTemplates.filter(p => p.allowEx && p.exQty > 0);
-            if (exPillows.length === 0) rarity = 'SSS';
-            system.pityCounter = 0; 
+            if (exPillows.length === 0) rarity = 'SSS'; system.pityCounter = 0; 
         }
-
-        let validPillows = (rarity === 'EX') 
-            ? allTemplates.filter(p => p.allowEx && p.exQty > 0)
-            : allTemplates;
-
+        let validPillows = (rarity === 'EX') ? allTemplates.filter(p => p.allowEx && p.exQty > 0) : allTemplates;
         const selected = validPillows[Math.floor(Math.random() * validPillows.length)];
-
         if (rarity === 'EX') {
             const idx = system.pillows.findIndex(p => p.id === selected.id);
-            if (idx > -1) {
-                system.pillows[idx].exQty -= 1;
-                system.markModified('pillows');
-            }
+            if (idx > -1) { system.pillows[idx].exQty -= 1; system.markModified('pillows'); }
             system.pityCounter = 0; 
-        } else {
-            system.pityCounter += 1;
-        }
-
+        } else { system.pityCounter += 1; }
         const newItem = {
-            id: selected.id,
-            name: selected.name,
-            imgUrl: selected.imgUrl,
-            rarity,
-            uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
-            obtainedAt: Date.now()
+            id: selected.id, name: selected.name, imgUrl: selected.imgUrl, rarity,
+            uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(), obtainedAt: Date.now()
         };
-
-        user.coins -= COST;
-        user.inventory.unshift(newItem);
-        user.markModified('inventory');
+        user.coins -= COST; user.inventory.unshift(newItem); user.markModified('inventory');
         system.totalPulls += 1;
-
-        await user.save();
-        await system.save();
+        await user.save(); await system.save();
         res.json({ success: true, item: newItem, coins: user.coins, serverInfo: system });
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
 //BURN
-app.post('/api/burn', async (req, res) => {
+app.post('/api/burn', verifyToken, async (req, res) => {
     try {
-        const { username, uniqueId } = req.body;
+        const username = req.user.username; // Bảo mật
+        const { uniqueId } = req.body;
+        // ... (Logic Burn cũ giữ nguyên, copy từ bài sửa trước vào đây) ...
         const user = await User.findOne({ username });
         const idx = user.inventory.findIndex(i => i.uniqueId === uniqueId);
-        
         if (idx > -1) {
             const item = user.inventory[idx];
             let codeStr = null;
-
-            const BURNABLE_RARITIES = ['SSS', 'EX'];
-
-            if (BURNABLE_RARITIES.includes(item.rarity)) {
-                
-                if (item.rarity === 'EX') {
-                    let system = await System.findOne({ id: 'main' });
-                    const tIdx = system.pillows.findIndex(p => p.id === item.id);
-                    if (tIdx > -1) {
-                         // system.pillows[tIdx].exQty += 1;
-                        system.markModified('pillows');
-                        await system.save();
-                    }
-                }
-
+            if (['SSS', 'EX'].includes(item.rarity)) {
+                if (item.rarity === 'EX') { /* Logic trả EX vào pool nếu muốn */ }
                 const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-                // Format: PIL-{ID}-{RARITY}-{RANDOM}{TIME}
                 codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${Date.now().toString().slice(-4)}`;
-                
-                await GiftCode.create({
-                    code: codeStr,
-                    itemTemplateId: item.id,
-                    rarity: item.rarity,
-                    isUsed: false,
-                    generatedBy: username
-                });
-            } else {
-                 // return res.status(400).json({message: "Không thể burn item này"});
+                await GiftCode.create({ code: codeStr, itemTemplateId: item.id, rarity: item.rarity, generatedBy: username });
             }
-
-            user.inventory.splice(idx, 1);
-            user.markModified('inventory');
-            await user.save();
-            
+            user.inventory.splice(idx, 1); user.markModified('inventory'); await user.save();
             return res.json({ success: true, code: codeStr });
         }
         res.status(400).json({ success: false, message: "Vật phẩm không tồn tại" });
-    } catch(err) { 
-        console.error(err);
-        res.status(500).json({ success: false, message: "Lỗi Server" }); 
-    }
+    } catch(err) { res.status(500).json({ success: false, message: "Lỗi Server" }); }
 });
 
 //DANH SÁCH CODE
@@ -338,23 +317,16 @@ app.get('/api/pillows', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-app.post('/api/admin/pillow', async (req, res) => {
+app.post('/api/admin/pillow', verifyToken, verifyAdmin, async (req, res) => {
+    // ... Logic admin cũ giữ nguyên ...
     try {
         const { pillow, action } = req.body;
         let system = await System.findOne({ id: 'main' });
         if (!system) system = new System({ id: 'main', pillows: INITIAL_TEMPLATES });
-
-        if (action === 'delete') {
-            system.pillows = system.pillows.filter(p => p.id !== pillow.id);
-        } else if (action === 'edit') {
-            const idx = system.pillows.findIndex(p => p.id === pillow.id);
-            if (idx !== -1) system.pillows[idx] = { ...system.pillows[idx], ...pillow };
-        } else {
-            const newPillow = { ...pillow, id: pillow.id ? Number(pillow.id) : Date.now() };
-            system.pillows.unshift(newPillow);
-        }
-        system.markModified('pillows');
-        await system.save();
+        if (action === 'delete') { system.pillows = system.pillows.filter(p => p.id !== pillow.id); } 
+        else if (action === 'edit') { const idx = system.pillows.findIndex(p => p.id === pillow.id); if (idx !== -1) system.pillows[idx] = { ...system.pillows[idx], ...pillow }; } 
+        else { const newPillow = { ...pillow, id: pillow.id ? Number(pillow.id) : Date.now() }; system.pillows.unshift(newPillow); }
+        system.markModified('pillows'); await system.save();
         res.json({ success: true, updatedPillows: system.pillows });
     } catch(err) { res.status(500).json({ success: false }); }
 });
@@ -374,9 +346,12 @@ app.post('/api/checkin', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-app.post('/api/update-coins', async (req, res) => {
+app.post('/api/update-coins', verifyToken, async (req, res) => {
     try {
-        const { username, amount } = req.body;
+        const username = req.user.username; 
+        const { amount } = req.body;
+        if (amount > 10000) amount = 10000;
+        
         const user = await User.findOneAndUpdate({ username }, { $inc: { coins: Number(amount) } }, { returnDocument: 'after' });
         res.json({ success: !!user, newBalance: user?.coins });
     } catch (e) { res.status(500).json({ success: false }); }

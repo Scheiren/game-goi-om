@@ -79,11 +79,26 @@ function changeSort(mode) {
 // ==========================================
 async function apiCall(endpoint, body) {
     try {
+        const token = localStorage.getItem('pgw_token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const res = await fetch(endpoint, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: JSON.stringify(body)
         });
+        
+        if (res.status === 401 || res.status === 403) {
+            logout();
+            showToast("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại", "error");
+            return { success: false };
+        }
+
         return await res.json();
     } catch(e) { console.error(e); return {success: false}; }
 }
@@ -98,8 +113,9 @@ async function login(u, p) {
         state.isAdmin = !!(res.user && res.user.isAdmin);
         state.serverInfo = res.serverInfo || state.serverInfo;
         
+        if(res.token) localStorage.setItem('pgw_token', res.token);
+        
         localStorage.setItem('pgw_user', u);
-        if(p) localStorage.setItem('pgw_pass', p);
         localStorage.setItem('pgw_coins', state.coins);
         localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
 
@@ -1294,11 +1310,12 @@ async function doCheckin() {
 
 async function checkAuth() {
     const savedUser = localStorage.getItem('pgw_user');
-    const savedPass = localStorage.getItem('pgw_pass');
+    const token = localStorage.getItem('pgw_token');
 
-    if (savedUser && savedPass) {
-        console.log("Đang tự động đăng nhập...");
-        await login(savedUser, savedPass);
+    if (savedUser && token) {
+        console.log("Đã tìm thấy phiên đăng nhập...");
+        state.username = savedUser;
+        renderApp();
     } else {
         renderApp();
     }
@@ -1306,6 +1323,7 @@ async function checkAuth() {
 
 function logout() {
     localStorage.removeItem('pgw_user');
+    localStorage.removeItem('pgw_token');
     localStorage.removeItem('pgw_pass');
     localStorage.removeItem('pgw_coins');
     localStorage.removeItem('pgw_inv');
@@ -1318,7 +1336,6 @@ function logout() {
     state.isAdmin = false;
     
     showToast('Đã đăng xuất thành công', 'info');
-    
     setTab('profile');
 }
 
