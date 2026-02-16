@@ -135,7 +135,8 @@ app.post('/api/login', async (req, res) => {
             token: token,
             user: uObj, 
             serverInfo: {
-                totalPulls: system.totalPulls,
+                totalPulls: system.totalPulls || 0,
+                pityCounter: system.pityCounter || 0
             }
         });
 
@@ -246,8 +247,9 @@ app.post('/api/gacha', verifyToken, async (req, res) => {
             item: newItem, 
             coins: user.coins,
             serverInfo: {
-                totalPulls: system.totalPulls
-            } 
+                totalPulls: system.totalPulls,
+                pityCounter: system.pityCounter
+            }
         });
 
     } catch (err) { 
@@ -486,6 +488,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
