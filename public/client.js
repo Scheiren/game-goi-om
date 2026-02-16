@@ -48,15 +48,11 @@ function startHeartbeat() {
     if (pingInterval) clearInterval(pingInterval);
     
     const doPing = async () => {
-        if(!state.username || state.username === 'Guest') return;
-
-        try {
-            const res = await apiCall('/api/ping', {});
-            if (res && res.success) {
-                updateOnlineCounter(res.online);
-            }
-        } catch (e) {
-            console.log("Ping failed");
+        if (!state.username || state.username === 'Guest') return;
+        
+        const res = await apiCall('/api/ping', {});
+        if (res && res.success) {
+            updateOnlineCounter(res.online);
         }
     };
 
@@ -65,6 +61,7 @@ function startHeartbeat() {
 }
 
 function updateOnlineCounter(count) {
+    state.onlineCount = count;
     const container = document.getElementById('online-count-display');
     const numberSpan = document.getElementById('online-number');
 
@@ -1389,6 +1386,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
