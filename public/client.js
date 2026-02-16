@@ -1,4 +1,4 @@
-// ==========================================
+"// ==========================================
 // 1. CẤU HÌNH & KHỞI TẠO (CONFIG & STATE)
 // ==========================================
 const BASE_RARITY_CONFIG = {
@@ -441,7 +441,7 @@ function itemDetail(uid) {
     const item = state.inventory.find(i => i.uniqueId === uid);
     if(!item) return;
 
-    const BURNABLE_RARITIES = ['S', 'SS', 'SSS', 'EX'];
+    const BURNABLE_RARITIES = ['SSS', 'EX'];
     const canBurn = BURNABLE_RARITIES.includes(item.rarity);
 
     const modal = document.createElement('div');
@@ -1325,6 +1325,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
