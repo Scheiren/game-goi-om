@@ -581,22 +581,37 @@ async function executeBulkDelete() {
 // --- EXCHANGE TAB (Nhập mã Code) ---
 function renderExchange(div) {
     div.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-full p-4 space-y-4">
-            <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
-                <h2 class="text-2xl font-black text-slate-800 mb-4 text-center">🎁 Nhập Mã Quà Tặng</h2>
+        <div class="flex flex-col items-center justify-center h-full p-4 space-y-4 bg-slate-50">
+            <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-200 text-center">
                 
-                <input type="text" id="input-gift-code" 
-                    placeholder="Dán mã code vào đây (VD: PIL-1-EX-...)" 
-                    class="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-mono text-center font-bold text-slate-700 outline-none focus:border-indigo-500 mb-4 transition uppercase">
+                <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                    <i data-lucide="gift" width="32"></i>
+                </div>
+                
+                <h2 class="text-2xl font-black text-slate-800 mb-2">Nhập Mã Quà Tặng</h2>
+                <p class="text-sm text-slate-500 mb-6">Nhập mã code từ người khác để nhận vật phẩm vào túi đồ.</p>
+                
+                <div class="relative mb-4">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i data-lucide="ticket" class="text-slate-400" width="20"></i>
+                    </div>
+                    <input type="text" id="input-gift-code" 
+                        placeholder="VD: PIL-123-EX-XYZ..." 
+                        class="w-full pl-12 p-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-mono font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition uppercase placeholder:normal-case">
+                </div>
                 
                 <button onclick="submitGiftCode()" 
-                    class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 active:scale-95 transition">
-                    XÁC NHẬN ĐỔI QUÀ
+                    class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 active:scale-95 transition flex items-center justify-center gap-2">
+                    <i data-lucide="check-circle" width="20"></i> XÁC NHẬN ĐỔI QUÀ
                 </button>
             </div>
-            <p class="text-slate-400 text-xs text-center">Lưu ý: Mỗi mã chỉ sử dụng được 1 lần duy nhất.</p>
+            
+            <p class="text-slate-400 text-xs text-center italic">
+                Lưu ý: Mã sẽ bị xóa vĩnh viễn khỏi hệ thống ngay sau khi sử dụng thành công.
+            </p>
         </div>
     `;
+    lucide.createIcons();
 }
 
 async function submitGiftCode() {
@@ -605,23 +620,34 @@ async function submitGiftCode() {
 
     if (!code) return showToast("Vui lòng nhập mã code!", "error");
 
-    showToast("Đang kiểm tra...", "info");
+    const btn = document.querySelector('button[onclick="submitGiftCode()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin"></i> Đang xử lý...`;
+    lucide.createIcons();
+    btn.disabled = true;
 
-    const res = await apiCall('/api/exchange', { 
-        username: state.username, 
-        code: code 
-    });
+    try {
+        const res = await apiCall('/api/exchange', { 
+            username: state.username, 
+            code: code 
+        });
 
-    if (res.success) {
-        state.inventory.unshift(res.item);
-        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
-        
-        showToast(`Thành công! Bạn nhận được: ${res.item.name}`, "success");
-        playSound('gacha-result');
-        
-        input.value = "";
-    } else {
-        showToast(res.message || "Lỗi đổi mã", "error");
+        if (res.success) {
+            state.inventory.unshift(res.item);
+            localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
+            
+            showToast(`Thành công! Bạn nhận được: ${res.item.name}`, "success");
+            
+            input.value = "";
+        } else {
+            showToast(res.message, "error");
+        }
+    } catch (err) {
+        showToast("Lỗi kết nối server", "error");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        lucide.createIcons();
     }
 }
 
@@ -1295,3 +1321,4 @@ function logout() {
     
     setTab('profile');
 }
+
