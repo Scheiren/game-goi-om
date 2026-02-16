@@ -182,7 +182,7 @@ app.post('/api/burn', async (req, res) => {
             const item = user.inventory[idx];
             let codeStr = null;
 
-            const BURNABLE_RARITIES = ['S', 'SS', 'SSS', 'EX'];
+            const BURNABLE_RARITIES = ['SSS', 'EX'];
 
             if (BURNABLE_RARITIES.includes(item.rarity)) {
                 
@@ -446,6 +446,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
