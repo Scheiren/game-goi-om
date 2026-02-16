@@ -134,7 +134,9 @@ app.post('/api/login', async (req, res) => {
             message: "Đăng nhập thành công", 
             token: token,
             user: uObj, 
-            serverInfo: system 
+            serverInfo: {
+                totalPulls: system.totalPulls,
+            }
         });
 
     } catch (err) { res.status(500).json({ success: false, message: 'Lỗi Server' }); }
@@ -163,39 +165,94 @@ app.post('/api/gacha', verifyToken, async (req, res) => {
     try {
         const username = req.user.username;
         const COST = 100;
-        const user = await User.findOne({ username });
-        if (!user || user.coins < COST) return res.status(400).json({ success: false, message: "Không đủ xu" });
-        
+
+        const user = await User.findOneAndUpdate(
+            { username: username, coins: { $gte: COST } }, 
+            { $inc: { coins: -COST } }, 
+            { new: true } 
+        );
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: "Không đủ xu" });
+        }
+
         let system = await System.findOne({ id: 'main' });
+        
         const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
         let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
+        
         const RARITY_ORDER = ['EX', 'SSS', 'SS', 'S', 'A', 'B', 'C', 'D', 'F'];
-        let rarity = 'F'; const rand = Math.random(); let cumulative = 0;
+        let rarity = 'F'; 
+        const rand = Math.random(); 
+        let cumulative = 0;
+
         for (const key of RARITY_ORDER) {
             const chance = (key === 'EX') ? exChance : BASE_RARITY_CONFIG[key].baseChance;
-            cumulative += chance; if (rand < cumulative) { rarity = key; break; }
+            cumulative += chance; 
+            if (rand < cumulative) { 
+                rarity = key; 
+                break; 
+            }
         }
-        const allTemplates = system.pillows.length > 0 ? system.pillows : INITIAL_TEMPLATES;
+
+        let allTemplates = (system.pillows && system.pillows.length > 0) ? system.pillows : INITIAL_TEMPLATES;
+
         if (rarity === 'EX') {
-            let exPillows = allTemplates.filter(p => p.allowEx && p.exQty > 0);
-            if (exPillows.length === 0) rarity = 'SSS'; system.pityCounter = 0; 
+            const exInStock = allTemplates.filter(p => p.allowEx && p.exQty > 0);
+            if (exInStock.length === 0) {
+                rarity = 'SSS';
+                system.pityCounter = 0; 
+            }
         }
-        let validPillows = (rarity === 'EX') ? allTemplates.filter(p => p.allowEx && p.exQty > 0) : allTemplates;
+
+        let validPillows = [];
+        if (rarity === 'EX') {
+            validPillows = allTemplates.filter(p => p.allowEx && p.exQty > 0);
+        } else {
+            validPillows = allTemplates; 
+        }
+
         const selected = validPillows[Math.floor(Math.random() * validPillows.length)];
+
         if (rarity === 'EX') {
             const idx = system.pillows.findIndex(p => p.id === selected.id);
-            if (idx > -1) { system.pillows[idx].exQty -= 1; system.markModified('pillows'); }
-            system.pityCounter = 0; 
-        } else { system.pityCounter += 1; }
-        const newItem = {
-            id: selected.id, name: selected.name, imgUrl: selected.imgUrl, rarity,
-            uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(), obtainedAt: Date.now()
-        };
-        user.coins -= COST; user.inventory.unshift(newItem); user.markModified('inventory');
+            if (idx > -1) { 
+                system.pillows[idx].exQty = Math.max(0, system.pillows[idx].exQty - 1);
+                system.markModified('pillows'); 
+            }
+            system.pityCounter = 0;
+        } else { 
+            system.pityCounter += 1;
+        }
+        
         system.totalPulls += 1;
-        await user.save(); await system.save();
-        res.json({ success: true, item: newItem, coins: user.coins, serverInfo: system });
-    } catch (err) { res.status(500).json({ success: false }); }
+        await system.save();
+
+        const newItem = {
+            id: selected.id, 
+            name: selected.name, 
+            imgUrl: selected.imgUrl, 
+            rarity: rarity,
+            uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(), 
+            obtainedAt: Date.now()
+        };
+
+        user.inventory.unshift(newItem); 
+        user.markModified('inventory');
+        await user.save();
+
+        res.json({ 
+            success: true, 
+            item: newItem, 
+            coins: user.coins,
+            serverInfo: {
+                totalPulls: system.totalPulls
+            } 
+        });
+
+    } catch (err) { 
+        res.status(500).json({ success: false, message: "Lỗi Server" }); 
+    }
 });
 
 //BURN
@@ -388,10 +445,24 @@ app.post('/api/checkin', async (req, res) => {
 app.post('/api/update-coins', verifyToken, async (req, res) => {
     try {
         const username = req.user.username; 
-        const { amount } = req.body;
-        if (amount > 10000) amount = 10000;
+        let { amount } = req.body;
         
-        const user = await User.findOneAndUpdate({ username }, { $inc: { coins: Number(amount) } }, { returnDocument: 'after' });
+        let safeAmount = Number(amount);
+        
+        if (isNaN(safeAmount) || safeAmount <= 0) return res.json({ success: false });
+
+        // Giới hạn cứng: Mỗi lần chơi game không thể nhận quá 200 xu
+        if (safeAmount > 1000) {
+            safeAmount = 1000;
+            console.warn(`Cảnh báo: User ${username} có dấu hiệu hack xu!`);
+        }
+        
+        const user = await User.findOneAndUpdate(
+            { username }, 
+            { $inc: { coins: safeAmount } }, 
+            { new: true }
+        );
+        
         res.json({ success: !!user, newBalance: user?.coins });
     } catch (e) { res.status(500).json({ success: false }); }
 });
@@ -415,6 +486,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
