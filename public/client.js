@@ -71,6 +71,19 @@ function updateOnlineCounter(count) {
     }
 }
 
+function escapeHTML(str) {
+    if (!str) return "";
+    return str.replace(/[&<>"']/g, function(m) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[m];
+    });
+}
+
 function playSound(id) {
     const el = document.getElementById(`snd-${id}`);
     if(el) { 
@@ -1386,6 +1399,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
