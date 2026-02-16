@@ -170,7 +170,7 @@ app.post('/api/gacha', verifyToken, async (req, res) => {
         const user = await User.findOneAndUpdate(
             { username: username, coins: { $gte: COST } }, 
             { $inc: { coins: -COST } }, 
-            { new: true } 
+            { returnDocument: 'after' } 
         );
 
         if (!user) {
@@ -462,7 +462,7 @@ app.post('/api/update-coins', verifyToken, async (req, res) => {
         const user = await User.findOneAndUpdate(
             { username }, 
             { $inc: { coins: safeAmount } }, 
-            { new: true }
+            { returnDocument: 'after' }
         );
         
         res.json({ success: !!user, newBalance: user?.coins });
@@ -488,6 +488,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
