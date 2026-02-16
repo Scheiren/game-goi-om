@@ -609,18 +609,49 @@ async function executeBulkDelete() {
     }
 }
 
+async function submitGiftCode() {
+    const input = document.getElementById('input-gift-code');
+    const code = input.value.trim();
+
+    if (!code) return showToast("Vui lòng nhập mã code!", "error");
+
+    showToast("Đang kiểm tra...", "info");
+
+    const res = await apiCall('/api/exchange', { 
+        username: state.username,
+        code: code 
+    });
+
+    if (res.success) {
+        state.inventory.unshift(res.item);
+        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
+        
+        showToast(`Thành công! Bạn nhận được: ${res.item.name}`, "success");
+        playSound('gacha-result');
+        
+        input.value = "";
+    } else {
+        showToast(res.message, "error");
+    }
+}
+
 // --- EXCHANGE TAB ---
 function renderExchange(div) {
     div.innerHTML = `
-        <div class="p-4 space-y-6 h-full overflow-y-auto bg-slate-50">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-lg mx-auto mt-4">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center"><i data-lucide="gift"></i></div>
-                    <div><h2 class="text-xl font-black text-slate-800 leading-none">Nhập Code Quà Tặng</h2></div>
-                </div>
-                <input id="import-input" type="text" placeholder="Ví dụ: PIL-1-E-A1B2C3" class="w-full p-4 border-2 border-slate-200 rounded-xl mb-4 uppercase font-mono font-bold tracking-wider focus:border-indigo-500 outline-none text-center bg-slate-50">
-                <button onclick="handleImport()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black shadow-lg hover:bg-indigo-700 transition">Xác Nhận</button>
+        <div class="flex flex-col items-center justify-center h-full p-4 space-y-4">
+            <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
+                <h2 class="text-2xl font-black text-slate-800 mb-4 text-center">🎁 Nhập Mã Quà Tặng</h2>
+                
+                <input type="text" id="input-gift-code" 
+                    placeholder="Dán mã code vào đây (VD: PIL-1-EX-...)" 
+                    class="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-mono text-center font-bold text-slate-700 outline-none focus:border-indigo-500 mb-4 transition uppercase">
+                
+                <button onclick="submitGiftCode()" 
+                    class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 active:scale-95 transition">
+                    XÁC NHẬN ĐỔI QUÀ
+                </button>
             </div>
+            <p class="text-slate-400 text-xs text-center">Lưu ý: Mỗi mã chỉ sử dụng được 1 lần duy nhất.</p>
         </div>
     `;
 }
@@ -1325,6 +1356,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
