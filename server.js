@@ -202,7 +202,23 @@ app.post('/api/burn', verifyToken, async (req, res) => {
         res.status(400).json({ success: false, message: "Vật phẩm không tồn tại" });
     } catch(err) { res.status(500).json({ success: false, message: "Lỗi Server" }); }
 });
-
+//USER
+app.post('/api/user/me', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password'); 
+        if (!user) return res.status(404).json({ success: false, message: "User không tồn tại" });
+        
+        let system = await System.findOne({ id: 'main' });
+        
+        res.json({ 
+            success: true, 
+            user: user,
+            serverInfo: system 
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Lỗi Server" });
+    }
+});
 //DANH SÁCH CODE
 app.get('/api/user/codes', async (req, res) => {
     try {
@@ -376,5 +392,6 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
