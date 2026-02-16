@@ -597,34 +597,34 @@ async function executeBulkDelete() {
 // --- EXCHANGE TAB (Nhập mã Code) ---
 function renderExchange(div) {
     div.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-full p-4 space-y-4 bg-slate-50">
-            <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-200 text-center">
+        <div class="flex flex-col items-center justify-start pt-10 h-full p-4 space-y-4 bg-slate-50 overflow-y-auto">
+            <div class="bg-white p-6 md:p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-200 text-center animate-pop-in">
                 
-                <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <div class="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
                     <i data-lucide="gift" width="32"></i>
                 </div>
                 
-                <h2 class="text-2xl font-black text-slate-800 mb-2">Nhập Mã Quà Tặng</h2>
-                <p class="text-sm text-slate-500 mb-6">Nhập mã code từ người khác để nhận vật phẩm vào túi đồ.</p>
+                <h2 class="text-2xl font-black text-slate-800 mb-2">Đổi Quà Tặng</h2>
+                <p class="text-sm text-slate-500 mb-6 font-medium">Nhập mã code bạn nhận được (hoặc mã từ việc đốt vật phẩm) vào đây.</p>
                 
-                <div class="relative mb-4">
+                <div class="relative mb-4 group">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <i data-lucide="ticket" class="text-slate-400" width="20"></i>
+                        <i data-lucide="ticket" class="text-slate-400 group-focus-within:text-indigo-500 transition" width="20"></i>
                     </div>
                     <input type="text" id="input-gift-code" 
-                        placeholder="VD: PIL-123-EX-XYZ..." 
-                        class="w-full pl-12 p-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-mono font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition uppercase placeholder:normal-case">
+                        placeholder="NHẬP MÃ CODE..." 
+                        class="w-full pl-12 p-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-mono font-bold text-slate-700 outline-none focus:border-indigo-500 focus:bg-white transition uppercase placeholder:normal-case placeholder:text-slate-400">
                 </div>
                 
                 <button onclick="submitGiftCode()" 
-                    class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/30 active:scale-95 transition flex items-center justify-center gap-2">
-                    <i data-lucide="check-circle" width="20"></i> XÁC NHẬN ĐỔI QUÀ
+                    class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 active:scale-95 transition flex items-center justify-center gap-2">
+                    <i data-lucide="check-circle" width="20"></i> XÁC NHẬN
                 </button>
             </div>
-            
-            <p class="text-slate-400 text-xs text-center italic">
-                Lưu ý: Mã sẽ bị xóa vĩnh viễn khỏi hệ thống ngay sau khi sử dụng thành công.
-            </p>
+
+            <div class="max-w-md w-full bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs leading-relaxed">
+                <p><strong>💡 Mẹo:</strong> Bạn có thể đốt các vật phẩm hiếm (SSS, EX) trong kho đồ để tạo ra mã quà tặng và chia sẻ cho bạn bè!</p>
+            </div>
         </div>
     `;
     lucide.createIcons();
@@ -1352,6 +1352,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
