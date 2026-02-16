@@ -166,7 +166,8 @@ app.post('/api/ping', verifyToken, async (req, res) => {
 app.post('/api/gacha', verifyToken, async (req, res) => {
     try {
         const username = req.user.username;
-        const user = await User.findOne({ username });
+        
+        let user = await User.findOne({ username }); 
         const COST = 100;
 
         if (user.inventory.length >= MAX_INVENTORY_SIZE) {
@@ -176,7 +177,7 @@ app.post('/api/gacha', verifyToken, async (req, res) => {
             });
         }
 
-        const user = await User.findOneAndUpdate(
+        user = await User.findOneAndUpdate(
             { username: username, coins: { $gte: COST } }, 
             { $inc: { coins: -COST } }, 
             { returnDocument: 'after' } 
@@ -258,10 +259,11 @@ app.post('/api/gacha', verifyToken, async (req, res) => {
             serverInfo: {
                 totalPulls: system.totalPulls,
                 pityCounter: system.pityCounter
-            }
+            } 
         });
 
     } catch (err) { 
+        console.error(err);
         res.status(500).json({ success: false, message: "Lỗi Server" }); 
     }
 });
@@ -505,6 +507,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
