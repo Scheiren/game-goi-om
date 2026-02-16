@@ -328,35 +328,63 @@ app.get('/api/user/codes', async (req, res) => {
 });
 
 //EXCHANGE
-app.post('/api/update-coins', verifyToken, async (req, res) => {
+app.post('/api/exchange', verifyToken, async (req, res) => {
     try {
-        const username = req.user.username; 
-        const now = Date.now();
-        
-        if (userCooldowns[username] && now - userCooldowns[username] < 1000) {
-            return res.json({ success: false, message: "Thao tác quá nhanh!" });
-        }
-        
-        let { amount } = req.body;
-        
-        let safeAmount = parseInt(amount); 
-        
-        if (isNaN(safeAmount) || safeAmount <= 0) return res.json({ success: false });
+        const { code } = req.body;
+        const username = req.user.username;
 
-        if (safeAmount > 1000) {
-            safeAmount = 1000;
+        const giftCode = await GiftCode.findOne({ code: code });
+        if (!giftCode) {
+            return res.status(400).json({ success: false, message: "Mã code không tồn tại!" });
         }
+
+        if (giftCode.isUsed) {
+            return res.status(400).json({ success: false, message: "Mã code này đã được sử dụng!" });
+        }
+
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({ success: false, message: "User không tồn tại" });
+
+        if (user.inventory.length >= MAX_INVENTORY_SIZE) {
+            return res.status(400).json({ success: false, message: "Túi đồ đã đầy! Hãy dọn bớt." });
+        }
+
+        let system = await System.findOne({ id: 'main' });
+        let allTemplates = (system && system.pillows && system.pillows.length > 0) ? system.pillows : INITIAL_TEMPLATES;
         
-        userCooldowns[username] = now;
+        const template = allTemplates.find(p => p.id === giftCode.itemTemplateId);
         
-        const user = await User.findOneAndUpdate(
-            { username }, 
-            { $inc: { coins: safeAmount } }, 
-            { returnDocument: 'after' }
-        );
-        
-        res.json({ success: !!user, newBalance: user?.coins });
-    } catch (e) { res.status(500).json({ success: false }); }
+        if (!template) {
+             return res.status(400).json({ success: false, message: "Vật phẩm trong code này không còn tồn tại trên hệ thống." });
+        }
+
+        giftCode.isUsed = true;
+        giftCode.usedBy = username;
+        await giftCode.save();
+
+        const newItem = {
+            id: template.id,
+            name: template.name,
+            imgUrl: template.imgUrl,
+            rarity: giftCode.rarity,
+            uniqueId: Math.random().toString(36).substring(2, 9).toUpperCase(),
+            obtainedAt: Date.now()
+        };
+
+        user.inventory.unshift(newItem);
+        user.markModified('inventory');
+        await user.save();
+
+        return res.json({ 
+            success: true, 
+            message: "Đổi quà thành công!", 
+            item: newItem 
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Lỗi Server khi đổi quà" });
+    }
 });
 
 app.post('/api/burn-batch', async (req, res) => {
@@ -485,6 +513,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
