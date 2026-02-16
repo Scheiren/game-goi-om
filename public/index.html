@@ -49,6 +49,15 @@
     </style>
 </head>
 <body class="bg-slate-100 font-sans text-slate-900 select-none overflow-hidden h-screen flex flex-col md:flex-row">
+    <body class="..."> <div id="online-count-display" class="fixed top-3 left-3 z-[100] bg-black/70 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold border border-white/10 hidden flex items-center gap-2 shadow-xl transition-all select-none hover:bg-black/90 cursor-default">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+        </span>
+        <span id="online-number">Loading...</span>
+    </div>
+    <div id="main-content">...</div>
+    </body>
 
     <!-- SOUNDS -->
     <audio id="snd-click" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.m4a"></audio>
@@ -121,3 +130,4 @@
 </body>
 
 </html>
+
