@@ -440,6 +440,10 @@ function renderCollection(div) {
 function itemDetail(uid) {
     const item = state.inventory.find(i => i.uniqueId === uid);
     if(!item) return;
+
+    const BURNABLE_RARITIES = ['S', 'SS', 'SSS', 'EX'];
+    const canBurn = BURNABLE_RARITIES.includes(item.rarity);
+
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-pop-in";
     modal.innerHTML = `
@@ -449,10 +453,10 @@ function itemDetail(uid) {
                 ${item.imgUrl ? `<img src="${item.imgUrl}" class="w-full h-full object-contain p-1">` : '🧸'}
             </div>
             <h3 class="text-xl font-black mb-1 text-slate-800">${item.name}</h3>
-            <span class="px-3 py-1 rounded-full text-white text-xs font-bold mb-4 ${BASE_RARITY_CONFIG[item.rarity].color}">${item.rarity}</span>
+            <span class="px-3 py-1 rounded-full text-white text-xs font-bold mb-4 ${BASE_RARITY_CONFIG[item.rarity].bg.split(' ')[0]}">${item.rarity}</span>
             <p class="font-mono text-xs bg-slate-100 p-2 rounded mb-6 w-full break-all border border-slate-200">ID: ${uid}</p>
             
-            ${item.rarity === 'EX' ? 
+            ${canBurn ? 
                 `<button onclick="burnItem('${uid}')" class="w-full py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition active:scale-95">
                     <i data-lucide="flame"></i> Đổi Mã Nhận Quà (Burn)
                 </button>` :
@@ -1252,6 +1256,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
