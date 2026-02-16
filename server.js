@@ -50,15 +50,15 @@ const GiftCode = mongoose.model('GiftCode', GiftCodeSchema);
 
 // --- CONFIG ---
 const BASE_RARITY_CONFIG = {
-    F:   { baseChance: 0.30, value: 10 },
+    F:   { baseChance: 0.3138, value: 10 },
     D:   { baseChance: 0.25, value: 20 },
     C:   { baseChance: 0.20, value: 50 },
     B:   { baseChance: 0.12, value: 100 },
     A:   { baseChance: 0.08, value: 250 },
     S:   { baseChance: 0.03, value: 1000 },
-    SS:  { baseChance: 0.016, value: 2500 },
-    SSS: { baseChance: 0.004, value: 5000 },
-    EX:  { baseChance: 0.001, value: 10000 }
+    SS:  { baseChance: 0.005, value: 2500 },
+    SSS: { baseChance: 0.001, value: 5000 },
+    EX:  { baseChance: 0.0002, value: 10000 }
 };
 
 const INITIAL_TEMPLATES = [
@@ -190,7 +190,7 @@ app.post('/api/gacha', verifyToken, async (req, res) => {
 
         let system = await System.findOne({ id: 'main' });
         
-        const pityBonus = Math.floor(system.pityCounter / 200) * 0.001;
+        const pityBonus = Math.floor(system.pityCounter / 200) * 0.0002;
         let exChance = Math.min(BASE_RARITY_CONFIG.EX.baseChance + pityBonus, 0.1);
         
         const RARITY_ORDER = ['EX', 'SSS', 'SS', 'S', 'A', 'B', 'C', 'D', 'F'];
@@ -513,6 +513,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
