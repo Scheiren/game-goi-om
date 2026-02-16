@@ -1309,18 +1309,32 @@ async function doCheckin() {
 }
 
 async function checkAuth() {
-    const savedUser = localStorage.getItem('pgw_user');
     const token = localStorage.getItem('pgw_token');
 
-    if (savedUser && token) {
-        console.log("Đã tìm thấy phiên đăng nhập...");
-        state.username = savedUser;
-        renderApp();
-    } else {
-        renderApp();
-    }
-}
+    if (token) {
+        const res = await apiCall('/api/user/me', {});
+        
+        if (res && res.success) {
+            state.username = res.user.username;
+            state.coins = res.user.coins;
+            state.inventory = res.user.inventory;
+            state.isAdmin = res.user.isAdmin;
+            state.serverInfo = res.serverInfo || state.serverInfo;
 
+            localStorage.setItem('pgw_user', state.username);
+            
+            console.log("Khôi phục phiên đăng nhập thành công. Admin:", state.isAdmin);
+        } else {
+            console.log("Token hết hạn, đăng xuất.");
+            logout();
+            return;
+        }
+    } else {
+        state.username = 'Guest';
+    }
+    
+    renderApp();
+}
 function logout() {
     localStorage.removeItem('pgw_user');
     localStorage.removeItem('pgw_token');
@@ -1338,6 +1352,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
