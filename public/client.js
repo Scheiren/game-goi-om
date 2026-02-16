@@ -1256,8 +1256,8 @@ async function renderProfile(div) {
                                             <div class="text-[10px] text-slate-400">ID Gốc: ${c.itemTemplateId}</div>
                                         </div>
                                     </div>
-                                    <button onclick="quickClaim('${c.code}')" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md active:scale-95 transition whitespace-nowrap">
-                                        Thu Hồi
+                                    <button onclick="quickClaim('${c.code}')" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md active:scale-95 transition whitespace-nowrap flex items-center justify-center gap-1">
+                                        <i data-lucide="download" width="14"></i> Thu Hồi
                                     </button>
                                 </div>
                                 `;
@@ -1352,6 +1352,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
