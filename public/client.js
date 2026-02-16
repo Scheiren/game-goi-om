@@ -952,7 +952,7 @@ function initTaiXiu(container) {
             const res = sum >= 11 ? 'TAI' : 'XIU';
             
             if(res === choice) { 
-                const won = Math.trunc(bet * 2 * 0.9);
+                const won = (bet * 2 * 0.9) | 0;
                 await apiCall('/api/update-coins', {username: state.username, amount: won});
                 state.coins += won; updateUI();
                 showToast(`THẮNG! +${won} Xu`, "success"); playSound('gacha-result'); 
@@ -1004,7 +1004,7 @@ function initBauCua(container) {
             const matches = [0,0,0,0,0,0]; r.forEach(idx => matches[idx]++);
             let win = 0; 
             bets.forEach((amt, idx) => { if(amt > 0 && matches[idx] > 0) win += amt + (amt * matches[idx]); });
-            win = Math.trunc(win * 0.96);
+            win = (win * 0.96) | 0;
             if(win > 0) { 
                 await apiCall('/api/update-coins', {username: state.username, amount: win});
                 state.coins += win; updateUI();
@@ -1321,6 +1321,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
