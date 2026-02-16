@@ -3,13 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thế Giới Gacha Gối Ôm (Supabase)</title>
+    <title>Thế Giới Gacha Gối Ôm</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- SUPABASE JS (MUST BE BEFORE CLIENT.JS) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
@@ -46,20 +43,33 @@
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Sidebar Button Base Style */
+        .sidebar-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 16px;
+            text-align: left;
+            color: #64748b; /* slate-500 */
+            transition: all 0.2s;
+        }
+        .sidebar-btn:hover {
+            background-color: #f8fafc; /* slate-50 */
+            color: #4f46e5; /* indigo-600 */
+        }
+        /* Active State handled by JS usually adds text-indigo-600 */
     </style>
 </head>
 <body class="bg-slate-100 font-sans text-slate-900 select-none overflow-hidden h-screen flex flex-col md:flex-row">
 
-    <!-- SOUNDS -->
     <audio id="snd-click" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.m4a"></audio>
     <audio id="snd-gacha-roll" src="https://assets.mixkit.co/active_storage/sfx/2048/2048-preview.m4a"></audio>
     <audio id="snd-gacha-result" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.m4a"></audio>
 
-    <!-- TOAST -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none w-max"></div>
 
-    <!-- UI STRUCTURE -->
-    <!-- Header Mobile -->
     <div class="md:hidden absolute top-0 left-0 right-0 h-14 bg-white/80 backdrop-blur border-b border-slate-200 flex items-center justify-between px-4 z-[40]">
         <div class="font-black text-indigo-600 text-lg flex items-center gap-2">
             <i data-lucide="sparkles" width="20"></i> PillowWorld
@@ -70,7 +80,6 @@
         </div>
     </div>
 
-    <!-- Sidebar Desktop -->
     <div class="hidden md:flex flex-col w-72 bg-white shadow-[10px_0_20px_rgba(0,0,0,0.03)] z-20 relative border-r border-slate-100">
         <div class="p-6 border-b border-slate-100 bg-slate-50">
             <h1 class="text-2xl font-black text-indigo-600 flex items-center gap-2 drop-shadow-sm">
@@ -81,23 +90,37 @@
                 <span class="coin-display tracking-wider text-lg">...</span> Xu
             </div>
         </div>
+        
         <div class="flex-1 py-4 space-y-2 px-2 overflow-y-auto no-scrollbar">
-            <button onclick="setTab('gacha')" data-tab="gacha" class="sidebar-btn rounded-xl"><i data-lucide="sparkles" width="20"></i><span class="font-bold">Gacha</span></button>
-            <button onclick="setTab('collection')" data-tab="collection" class="sidebar-btn rounded-xl"><i data-lucide="library" width="20"></i><span class="font-bold">Bộ Sưu Tập</span></button>
-            <button onclick="setTab('games')" data-tab="games" class="sidebar-btn rounded-xl"><i data-lucide="gamepad-2" width="20"></i><span class="font-bold">Khu Vui Chơi</span></button>
-            <button onclick="setTab('profile')" data-tab="profile" class="sidebar-btn rounded-xl"><i data-lucide="user" width="20"></i><span class="font-bold">Tài Khoản</span></button>
-            <button onclick="setTab('admin')" data-tab="admin" class="sidebar-btn admin-nav-item rounded-xl bg-slate-900 text-white hover:bg-slate-800 hidden"><i data-lucide="shield-alert" width="20" class="text-red-400"></i><span class="font-bold text-red-400">Quản Trị</span></button>
+            <button onclick="setTab('gacha')" data-tab="gacha" class="sidebar-btn rounded-xl">
+                <i data-lucide="sparkles" width="20"></i><span class="font-bold">Gacha</span>
+            </button>
+            <button onclick="setTab('collection')" data-tab="collection" class="sidebar-btn rounded-xl">
+                <i data-lucide="library" width="20"></i><span class="font-bold">Bộ Sưu Tập</span>
+            </button>
+            <button onclick="setTab('games')" data-tab="games" class="sidebar-btn rounded-xl">
+                <i data-lucide="gamepad-2" width="20"></i><span class="font-bold">Khu Vui Chơi</span>
+            </button>
+            
+            <button onclick="setTab('exchange')" data-tab="exchange" class="sidebar-btn rounded-xl">
+                <i data-lucide="ticket" width="20"></i><span class="font-bold">Đổi Code</span>
+            </button>
+            
+            <button onclick="setTab('profile')" data-tab="profile" class="sidebar-btn rounded-xl">
+                <i data-lucide="user" width="20"></i><span class="font-bold">Tài Khoản</span>
+            </button>
+            
+            <button onclick="setTab('admin')" data-tab="admin" class="sidebar-btn admin-nav-item rounded-xl bg-slate-900 text-white hover:bg-slate-800 hidden">
+                <i data-lucide="shield-alert" width="20" class="text-red-400"></i><span class="font-bold text-red-400">Quản Trị</span>
+            </button>
         </div>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div class="flex-1 relative h-full bg-slate-50 pt-14 md:pt-0 pb-[70px] md:pb-0 overflow-hidden">
         <div id="main-content" class="h-full relative z-10"></div>
     </div>
 
-    <!-- Bottom Nav Mobile -->
     <div class="md:hidden fixed bottom-0 left-0 right-0 h-[70px] bg-white border-t border-slate-200 flex justify-around z-[40] pb-safe px-2 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] rounded-t-2xl">
-        <!-- mark Gacha as visually active by default to match message.html (client will set real active state) -->
         <button onclick="setTab('gacha')" data-tab="gacha" class="nav-btn flex flex-col items-center justify-center w-full text-indigo-600">
             <i data-lucide="sparkles" width="24" class="mb-1"></i><span class="text-[10px] font-black">Gacha</span>
         </button>
@@ -107,15 +130,16 @@
         <button onclick="setTab('games')" data-tab="games" class="nav-btn flex flex-col items-center justify-center w-full text-slate-400 hover:text-indigo-400">
             <i data-lucide="gamepad-2" width="24" class="mb-1"></i><span class="text-[10px] font-black">Game</span>
         </button>
+        
+        <button onclick="setTab('exchange')" data-tab="exchange" class="nav-btn flex flex-col items-center justify-center w-full text-slate-400 hover:text-indigo-400">
+            <i data-lucide="ticket" width="24" class="mb-1"></i><span class="text-[10px] font-black">Code</span>
+        </button>
+
         <button onclick="setTab('profile')" data-tab="profile" class="nav-btn flex flex-col items-center justify-center w-full text-slate-400 hover:text-indigo-400">
             <i data-lucide="user" width="24" class="mb-1"></i><span class="text-[10px] font-black">Acc</span>
         </button>
-        <button onclick="setTab('admin')" data-tab="admin" class="nav-btn admin-nav-item hidden flex flex-col items-center justify-center w-full text-red-400 hover:text-red-500">
-            <i data-lucide="shield-alert" width="24" class="mb-1"></i><span class="text-[10px] font-black">Admin</span>
-        </button>
     </div>
 
-    <!-- CLIENT LOGIC -->
     <script src="client.js"></script>
 </body>
 </html>
