@@ -1,4 +1,4 @@
-"// ==========================================
+// ==========================================
 // 1. CẤU HÌNH & KHỞI TẠO (CONFIG & STATE)
 // ==========================================
 const BASE_RARITY_CONFIG = {
@@ -53,6 +53,7 @@ function playSound(id) {
 
 function showToast(msg, type='info') {
     const box = document.getElementById('toast-container');
+    if(!box) return;
     const el = document.createElement('div');
     const color = type==='error'?'bg-red-600':(type==='success'?'bg-green-600':'bg-slate-800');
     el.className = `${color} text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold animate-slide-down flex items-center gap-2`;
@@ -124,6 +125,7 @@ window.onload = () => {
 
     document.addEventListener('click', (e) => {
         if(e.target.closest('button') || e.target.closest('.cursor-pointer')) {
+            // Global click handler placeholder
         }
     });
 };
@@ -167,7 +169,7 @@ function updateUI() {
         if(!state.isAdmin) el.classList.add('hidden');
     });
 
-    lucide.createIcons();
+    if(window.lucide) lucide.createIcons();
 }
 
 function renderApp() {
@@ -187,7 +189,7 @@ function renderApp() {
         case 'admin': if(state.isAdmin) renderAdmin(content); else setTab('profile'); break;
         default: renderGacha(content);
     }
-    lucide.createIcons();
+    if(window.lucide) lucide.createIcons();
 }
 
 // ==========================================
@@ -307,8 +309,6 @@ function renderCollection(div) {
         'rare_low': '📦 Thường (F)'
     };
 
-    // Hàm nhỏ xử lý chọn sort (được nhúng trực tiếp vào HTML để tránh lỗi scope)
-    // Lưu ý: window.handleSortClick phải được định nghĩa hoặc gọi trực tiếp changeSort
     const onSortClick = (mode) => `changeSort('${mode}'); document.getElementById('sort-dropdown').classList.add('hidden');`;
 
     div.innerHTML = `
@@ -441,6 +441,7 @@ function itemDetail(uid) {
     const item = state.inventory.find(i => i.uniqueId === uid);
     if(!item) return;
 
+    // --- LOGIC MỚI: CHỈ SSS VÀ EX MỚI ĐƯỢC BURN ---
     const BURNABLE_RARITIES = ['SSS', 'EX'];
     const canBurn = BURNABLE_RARITIES.includes(item.rarity);
 
@@ -474,13 +475,11 @@ function itemDetail(uid) {
 // --- BURN & DELETE ---
 
 async function deleteItem(uid) {
-    if(!confirm("Bạn có chắc chắn muốn XÓA vĩnh viễn vật phẩm này? (Hành động này không nhận được mã quà tặng)")) return;
+    if(!confirm("Bạn có chắc chắn muốn XÓA vĩnh viễn vật phẩm này?")) return;
     
-    // Vẫn gọi API burn để Server xóa item khỏi Inventory trong Database
     const res = await apiCall('/api/burn', {username: state.username, uniqueId: uid});
     
     if(res.success) {
-        // Cập nhật state và giao diện tại chỗ
         state.inventory = state.inventory.filter(i => i.uniqueId !== uid);
         localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
         
@@ -493,7 +492,7 @@ async function deleteItem(uid) {
 }
 
 async function burnItem(uid) {
-    if(!confirm("Bạn chắc chắn muốn ĐỐT vật phẩm này?")) return;
+    if(!confirm("Bạn chắc chắn muốn ĐỐT vật phẩm này để lấy mã quà tặng?")) return;
     
     const content = document.getElementById('detail-modal-content');
     content.innerHTML = `<div class="p-10 flex flex-col items-center justify-center h-64"><i data-lucide="loader-2" class="animate-spin text-indigo-600 mb-4" width="40"></i><p class="font-bold text-slate-500">Đang xử lý...</p></div>`;
@@ -556,17 +555,8 @@ function selectAll() {
 async function executeBulkDelete() {
     const count = state.selectedItems.length;
     if (count === 0) return;
-
-    const selectedEXItems = state.inventory.filter(item => 
-        state.selectedItems.includes(item.uniqueId) && item.rarity === 'EX'
-    );
-    const hasEX = selectedEXItems.length > 0;
-
-    const confirmMsg = hasEX
-        ? `Bạn đang xóa ${count} vật phẩm, bao gồm ${selectedEXItems.length} siêu phẩm EX. Bạn chắc chắn chứ? (Chỉ EX mới nhận được mã code)`
-        : `Xác nhận xóa vĩnh viễn ${count} vật phẩm đã chọn?`;
-
-    if (!confirm(confirmMsg)) return;
+    
+    if (!confirm(`Xác nhận xóa vĩnh viễn ${count} vật phẩm đã chọn?`)) return;
 
     const res = await apiCall('/api/burn-batch', {
         username: state.username,
@@ -576,30 +566,8 @@ async function executeBulkDelete() {
     if (res.success) {
         state.inventory = state.inventory.filter(item => !state.selectedItems.includes(item.uniqueId));
         localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
-
-        if (hasEX) {
-            const exCodes = res.codes.filter(c => c.includes('-EX-'));
-            
-            const modal = document.createElement('div');
-            modal.className = "fixed inset-0 bg-black/80 z-[250] flex items-center justify-center p-4 backdrop-blur-sm";
-            modal.innerHTML = `
-                <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col items-center">
-                    <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4"><i data-lucide="flame"></i></div>
-                    <h2 class="text-xl font-black text-slate-800 mb-2">Đã Xóa & Trả Mã EX</h2>
-                    <p class="text-xs text-slate-500 mb-4 text-center">Các vật phẩm thường đã bị xóa. Đây là mã quà tặng cho các vật phẩm EX của bạn:</p>
-                    <div class="w-full max-h-40 overflow-y-auto space-y-2 mb-6 no-scrollbar">
-                        ${exCodes.map(code => `
-                            <div class="p-2 bg-slate-800 text-white rounded-lg font-mono text-[10px] text-center select-all border border-slate-600">${code}</div>
-                        `).join('')}
-                    </div>
-                    <button onclick="this.closest('.fixed').remove();" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg">Xác Nhận</button>
-                </div>
-            `;
-            document.body.appendChild(modal);
-            lucide.createIcons();
-        } else {
-            showToast(`Đã xóa vĩnh viễn ${count} vật phẩm thành công`, 'info');
-        }
+        
+        showToast(`Đã xóa vĩnh viễn ${count} vật phẩm thành công`, 'info');
 
         state.selectedItems = [];
         state.isSelectionMode = false;
@@ -609,33 +577,8 @@ async function executeBulkDelete() {
     }
 }
 
-async function submitGiftCode() {
-    const input = document.getElementById('input-gift-code');
-    const code = input.value.trim();
 
-    if (!code) return showToast("Vui lòng nhập mã code!", "error");
-
-    showToast("Đang kiểm tra...", "info");
-
-    const res = await apiCall('/api/exchange', { 
-        username: state.username,
-        code: code 
-    });
-
-    if (res.success) {
-        state.inventory.unshift(res.item);
-        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
-        
-        showToast(`Thành công! Bạn nhận được: ${res.item.name}`, "success");
-        playSound('gacha-result');
-        
-        input.value = "";
-    } else {
-        showToast(res.message, "error");
-    }
-}
-
-// --- EXCHANGE TAB ---
+// --- EXCHANGE TAB (Nhập mã Code) ---
 function renderExchange(div) {
     div.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full p-4 space-y-4">
@@ -656,34 +599,29 @@ function renderExchange(div) {
     `;
 }
 
-async function handleImport() {
-    const input = document.getElementById('import-input');
+async function submitGiftCode() {
+    const input = document.getElementById('input-gift-code');
     const code = input.value.trim();
-    if(!code) return showToast("Vui lòng nhập code", "error");
-    
-    const btn = document.querySelector('#import-input + button');
-    const originalText = btn.innerText;
-    btn.innerText = "Đang kiểm tra...";
-    btn.disabled = true;
 
-    try {
-        const res = await apiCall('/api/exchange', {username: state.username, code: code});
+    if (!code) return showToast("Vui lòng nhập mã code!", "error");
+
+    showToast("Đang kiểm tra...", "info");
+
+    const res = await apiCall('/api/exchange', { 
+        username: state.username, 
+        code: code 
+    });
+
+    if (res.success) {
+        state.inventory.unshift(res.item);
+        localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
         
-        if(res.success) {
-            state.inventory.unshift(res.item);
-            showToast(`Thành công! Bạn nhận được: ${res.item.name}`, 'success');
-            input.value = '';
-            
-            const stage = document.getElementById('exchange-result-area') || document.body;
-            playSound('gacha-result');
-        } else {
-            showToast(res.message || "Lỗi khi nhập mã", 'error');
-        }
-    } catch (e) {
-        showToast("Lỗi kết nối server", "error");
-    } finally {
-        btn.innerText = originalText;
-        btn.disabled = false;
+        showToast(`Thành công! Bạn nhận được: ${res.item.name}`, "success");
+        playSound('gacha-result');
+        
+        input.value = "";
+    } else {
+        showToast(res.message || "Lỗi đổi mã", "error");
     }
 }
 
@@ -1262,7 +1200,7 @@ async function renderProfile(div) {
                     </div>
                     <div class="max-h-80 overflow-y-auto p-2 space-y-2 bg-slate-50/50">
                         ${myCodes.length === 0 
-                            ? `<div class="text-center py-8 text-slate-400 text-xs">Bạn chưa tạo mã nào.<br>Đốt vật phẩm để lấy mã!</div>` 
+                            ? `<div class="text-center py-8 text-slate-400 text-xs">Bạn chưa tạo mã nào.<br>Đốt vật phẩm (SSS/EX) để lấy mã!</div>` 
                             : myCodes.map(c => {
                                 const rarityColor = BASE_RARITY_CONFIG[c.rarity] ? BASE_RARITY_CONFIG[c.rarity].text : 'text-slate-600';
                                 return `
@@ -1304,6 +1242,7 @@ async function quickClaim(code) {
             localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
             
             showToast(`Thành công! Đã nhận lại: ${res.item.name}`, 'success');
+            playSound('gacha-result');
             
             renderProfile(document.getElementById('main-content'));
         } else {
@@ -1356,16 +1295,3 @@ function logout() {
     
     setTab('profile');
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
