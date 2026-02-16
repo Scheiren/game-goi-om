@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || "bi_mat_khong_the_bat_mi_123456";
+const MAX_INVENTORY_SIZE = 200;
 
 // --- CẤU HÌNH DATABASE ---
 mongoose.connect(process.env.MONGO_URI)
@@ -165,7 +166,15 @@ app.post('/api/ping', verifyToken, async (req, res) => {
 app.post('/api/gacha', verifyToken, async (req, res) => {
     try {
         const username = req.user.username;
+        const user = await User.findOne({ username });
         const COST = 100;
+
+        if (user.inventory.length >= MAX_INVENTORY_SIZE) {
+            return res.json({ 
+                success: false, 
+                message: `Túi đồ đã đầy (${user.inventory.length}/${MAX_INVENTORY_SIZE})! Vui lòng xóa bớt hoặc đốt gối.` 
+            });
+        }
 
         const user = await User.findOneAndUpdate(
             { username: username, coins: { $gte: COST } }, 
@@ -488,6 +497,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
