@@ -1176,7 +1176,7 @@ async function deletePillow(id) {
 }
 
 // --- PROFILE SYSTEM ---
-function renderProfile(div) {
+async function renderProfile(div) {
     if(state.username === 'Guest') {
         div.innerHTML = `
             <div class="p-6 pt-10 text-center max-w-sm mx-auto h-full flex flex-col justify-center">
@@ -1190,31 +1190,100 @@ function renderProfile(div) {
             </div>
         `;
     } else {
+        let myCodes = [];
+        try {
+            const res = await fetch(`/api/user/codes?username=${state.username}`).then(r => r.json());
+            if(res.success) myCodes = res.data;
+        } catch(e) { console.error(e); }
+
         div.innerHTML = `
-            <div class="p-6 pt-10 text-center max-w-md mx-auto">
-                <div class="bg-white rounded-3xl shadow-lg p-6 border border-slate-100">
-                    <div class="w-24 h-24 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl text-white font-black shadow-lg border-4 border-white">
-                        ${state.username[0].toUpperCase()}
-                    </div>
-                    <h2 class="text-2xl font-black mb-1 text-slate-800">${state.username}</h2>
-                    <div class="flex items-center justify-center gap-2 text-indigo-600 font-bold mb-8 bg-indigo-50 py-2 rounded-xl mx-10">
-                        <i data-lucide="coins" width="18"></i> ${state.coins} Xu
+            <div class="p-4 pt-6 pb-20 max-w-md mx-auto h-full overflow-y-auto no-scrollbar">
+                <div class="bg-white rounded-3xl shadow-sm p-6 border border-slate-100 mb-4 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="user" width="100" height="100"></i></div>
+                    <div class="flex items-center gap-4 mb-4 relative z-10">
+                        <div class="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-2xl text-white font-black shadow-lg border-2 border-white">
+                            ${state.username[0].toUpperCase()}
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-black text-slate-800">${state.username}</h2>
+                            <div class="text-indigo-600 font-bold text-sm bg-indigo-50 px-2 py-0.5 rounded-lg inline-flex items-center gap-1 mt-1">
+                                <i data-lucide="coins" width="14"></i> ${state.coins} Xu
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="space-y-3">
-                        <button onclick="doCheckin()" class="w-full bg-white border-2 border-yellow-100 text-yellow-700 p-4 rounded-xl font-bold flex items-center justify-between hover:bg-yellow-50 transition shadow-sm">
-                            <span class="flex items-center gap-2"><i data-lucide="calendar-check"></i> Điểm Danh Ngày</span>
-                            <span class="bg-yellow-200 text-yellow-800 text-xs px-2 py-1 rounded">+500</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="doCheckin()" class="bg-yellow-50 text-yellow-700 p-3 rounded-xl font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-yellow-100 transition border border-yellow-100">
+                            <i data-lucide="calendar-check" width="20"></i> Điểm Danh
                         </button>
-                        <button onclick="logout()" class="w-full bg-slate-50 text-slate-600 p-4 rounded-xl font-bold hover:bg-slate-100 transition flex items-center justify-center gap-2">
-                            <i data-lucide="log-out" width="18"></i> Đăng Xuất
+                        <button onclick="logout()" class="bg-slate-50 text-slate-600 p-3 rounded-xl font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-slate-100 transition border border-slate-100">
+                            <i data-lucide="log-out" width="20"></i> Đăng Xuất
                         </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <h3 class="font-black text-slate-700 flex items-center gap-2">
+                            <i data-lucide="ticket" class="text-indigo-500"></i> Kho Code Của Tôi
+                        </h3>
+                        <span class="text-xs font-bold text-slate-400 bg-white px-2 py-1 rounded border border-slate-200">${myCodes.length}</span>
+                    </div>
+                    <div class="max-h-80 overflow-y-auto p-2 space-y-2 bg-slate-50/50">
+                        ${myCodes.length === 0 
+                            ? `<div class="text-center py-8 text-slate-400 text-xs">Bạn chưa tạo mã nào.<br>Đốt vật phẩm để lấy mã!</div>` 
+                            : myCodes.map(c => {
+                                const rarityColor = BASE_RARITY_CONFIG[c.rarity] ? BASE_RARITY_CONFIG[c.rarity].text : 'text-slate-600';
+                                return `
+                                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 group">
+                                    <div class="flex items-center gap-3 w-full sm:w-auto overflow-hidden">
+                                        <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center font-black text-sm ${rarityColor} border border-slate-200 shrink-0">
+                                            ${c.rarity}
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-mono font-bold text-slate-700 text-xs truncate select-all" title="${c.code}">${c.code}</div>
+                                            <div class="text-[10px] text-slate-400">ID Gốc: ${c.itemTemplateId}</div>
+                                        </div>
+                                    </div>
+                                    <button onclick="quickClaim('${c.code}')" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md active:scale-95 transition whitespace-nowrap">
+                                        Thu Hồi
+                                    </button>
+                                </div>
+                                `;
+                            }).join('')
+                        }
                     </div>
                 </div>
             </div>
         `;
     }
     lucide.createIcons();
+}
+
+async function quickClaim(code) {
+    if(!confirm("Bạn muốn đổi mã này để lấy lại vật phẩm vào túi?")) return;
+
+    showToast("Đang xử lý...", "info");
+
+    try {
+        const res = await apiCall('/api/exchange', { username: state.username, code: code });
+        
+        if(res.success) {
+            state.inventory.unshift(res.item);
+            localStorage.setItem('pgw_inv', JSON.stringify(state.inventory));
+            
+            showToast(`Thành công! Đã nhận lại: ${res.item.name}`, 'success');
+            
+            renderProfile(document.getElementById('main-content'));
+        } else {
+            showToast(res.message || "Lỗi khi đổi mã", 'error');
+            if(res.message && res.message.includes("đã được sử dụng")) {
+                renderProfile(document.getElementById('main-content'));
+            }
+        }
+    } catch (e) {
+        showToast("Lỗi kết nối", "error");
+    }
 }
 
 async function doCheckin() {
@@ -1256,6 +1325,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
