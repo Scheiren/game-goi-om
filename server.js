@@ -332,26 +332,20 @@ app.post('/api/burn-batch', async (req, res) => {
 app.post('/api/exchange', async (req, res) => {
     try {
         const { username, code } = req.body;
-        if(!code) return res.status(400).json({success: false, message: "Vui lòng nhập code"});
         
-        const cleanCode = code.trim();
+        if(!code) return res.status(400).json({success: false, message: "Chưa nhập mã!"});
 
-        const giftCode = await GiftCode.findOneAndDelete({ code: cleanCode });
+        const giftCode = await GiftCode.findOneAndDelete({ code: code.trim() });
 
         if (!giftCode) {
-            return res.json({ success: false, message: "Mã quà tặng không tồn tại hoặc đã được sử dụng!" });
+            return res.json({ success: false, message: "Mã này không tồn tại hoặc đã có người sử dụng!" });
         }
 
         const system = await System.findOne({ id: 'main' });
-        const allTemplates = (system && system.pillows && system.pillows.length > 0) 
-                             ? system.pillows 
-                             : INITIAL_TEMPLATES;
-        
-        const template = allTemplates.find(t => t.id === giftCode.itemTemplateId);
+        const allItems = system?.pillows || INITIAL_TEMPLATES;
+        const template = allItems.find(p => p.id === giftCode.itemTemplateId);
 
-        if (!template) {
-            return res.json({ success: false, message: "Vật phẩm của code này không còn tồn tại trong hệ thống." });
-        }
+        if (!template) return res.json({ success: false, message: "Vật phẩm lỗi!" });
 
         const newItem = {
             id: template.id,
@@ -363,15 +357,15 @@ app.post('/api/exchange', async (req, res) => {
         };
 
         await User.findOneAndUpdate(
-            { username },
+            { username: username }, 
             { $push: { inventory: { $each: [newItem], $position: 0 } } }
         );
 
         return res.json({ success: true, item: newItem });
 
-    } catch(err) { 
-        console.error(err);
-        res.status(500).json({ success:false, message: "Lỗi hệ thống" }); 
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ success: false, message: "Lỗi Server" });
     }
 });
 
@@ -446,6 +440,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
