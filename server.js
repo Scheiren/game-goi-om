@@ -22,7 +22,8 @@ const UserSchema = new mongoose.Schema({
     coins: { type: Number, default: 1000 },
     isAdmin: { type: Boolean, default: false },
     lastCheckIn: { type: Number, default: 0 },
-    inventory: { type: Array, default: [] }
+    inventory: { type: Array, default: [] },
+    lastActiveAt: { type: Number, default: Date.now } 
 });
 const User = mongoose.model('User', UserSchema);
 
@@ -137,6 +138,24 @@ app.post('/api/login', async (req, res) => {
         });
 
     } catch (err) { res.status(500).json({ success: false, message: 'Lỗi Server' }); }
+});
+
+//PING
+app.post('/api/ping', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const now = Date.now();
+        const THRESHOLD = 60000;
+        await User.findByIdAndUpdate(userId, { lastActiveAt: now });
+
+        const onlineCount = await User.countDocuments({ 
+            lastActiveAt: { $gt: now - THRESHOLD } 
+        });
+
+        res.json({ success: true, online: onlineCount });
+    } catch (err) {
+        res.json({ success: false });
+    }
 });
 
 //GACHA
@@ -396,6 +415,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
