@@ -182,20 +182,27 @@ app.post('/api/burn', async (req, res) => {
             const item = user.inventory[idx];
             let codeStr = null;
 
-            if (item.rarity === 'EX') {
-                let system = await System.findOne({ id: 'main' });
-                const tIdx = system.pillows.findIndex(p => p.id === item.id);
-                if (tIdx > -1) {
-                    system.markModified('pillows');
-                    await system.save();
+            const BURNABLE_RARITIES = ['S', 'SS', 'SSS', 'EX'];
+
+            if (BURNABLE_RARITIES.includes(item.rarity)) {
+                
+                if (item.rarity === 'EX') {
+                    let system = await System.findOne({ id: 'main' });
+                    const tIdx = system.pillows.findIndex(p => p.id === item.id);
+                    if (tIdx > -1) {
+                        // system.pillows[tIdx].exQty += 1; 
+                        system.markModified('pillows');
+                        await system.save();
+                    }
                 }
 
                 const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-                codeStr = `PIL-${item.id}-EX-${randomStr}${Date.now().toString().slice(-4)}`;
+                codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${Date.now().toString().slice(-4)}`;
+                
                 await GiftCode.create({
                     code: codeStr,
                     itemTemplateId: item.id,
-                    rarity: 'EX',
+                    rarity: item.rarity,
                     isUsed: false,
                     generatedBy: username
                 });
@@ -204,10 +211,33 @@ app.post('/api/burn', async (req, res) => {
             user.inventory.splice(idx, 1);
             user.markModified('inventory');
             await user.save();
+            
             return res.json({ success: true, code: codeStr });
         }
-        res.status(400).json({ success: false });
-    } catch(err) { res.status(500).json({ success: false }); }
+        res.status(400).json({ success: false, message: "Vật phẩm không tồn tại" });
+    } catch(err) { 
+        console.error(err);
+        res.status(500).json({ success: false, message: "Lỗi Server" }); 
+    }
+});
+
+//GET CODES
+app.get('/api/user/codes', async (req, res) => {
+    try {
+        const { username } = req.query;
+        if (!username) return res.json({ success: false, data: [] });
+
+        // Tìm các code do user này tạo (generatedBy), chưa được sử dụng (isUsed: false)
+        const codes = await GiftCode.find({ 
+            generatedBy: username, 
+            isUsed: false 
+        }).sort({ createdAt: -1 });
+
+        res.json({ success: true, data: codes });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Lỗi server" });
+    }
 });
 
 //BURN BATCH --change to DELETE BATCH now
@@ -417,6 +447,7 @@ app.post('/api/claim', async (req, res) => {
 
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
