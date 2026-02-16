@@ -63,15 +63,12 @@ function startHeartbeat() {
 function updateOnlineCounter(count) {
     state.onlineCount = count;
 
-    const el = document.getElementById('online-count-display');
-    if (el) {
-        el.innerHTML = `
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            <span>${count} Online</span>
-        `;
+    const container = document.getElementById('online-count-display');
+    const numberSpan = document.getElementById('online-number');
+
+    if (container && numberSpan) {
+        numberSpan.innerText = `${count} Online`;
+        container.classList.remove('hidden');
     }
 }
 
@@ -228,20 +225,7 @@ function renderApp() {
 
     content.innerHTML = '';
     updateUI();
-
-    const currentOnline = state.onlineCount || 1; 
     
-    content.innerHTML += `
-        <div id="online-count-display" class="absolute top-3 left-3 z-50 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold border border-white/10 flex items-center gap-2 shadow-lg transition-all hover:bg-black/80 cursor-default select-none">
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            <span>${currentOnline} Online</span>
-        </div>
-    `;
-    // ============================================================
-
     switch(state.tab) {
         case 'gacha': renderGacha(content); break;
         case 'collection': renderCollection(content); break;
@@ -1398,6 +1382,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
