@@ -225,16 +225,20 @@ function renderApp() {
 
     content.innerHTML = '';
     updateUI();
-    
+
     switch(state.tab) {
         case 'gacha': renderGacha(content); break;
         case 'collection': renderCollection(content); break;
         case 'games': renderGamesHub(content); break;
         case 'exchange': renderExchange(content); break;
         case 'profile': renderProfile(content); break;
-        case 'admin': if(state.isAdmin) renderAdmin(content); else setTab('profile'); break;
+        case 'admin': 
+            if(state.isAdmin) renderAdmin(content); 
+            else setTab('profile'); 
+            break;
         default: renderGacha(content);
     }
+    
     if(window.lucide) lucide.createIcons();
 }
 
@@ -1382,6 +1386,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
