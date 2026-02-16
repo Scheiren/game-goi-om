@@ -47,12 +47,16 @@ let activeInterval = null, activeTimeout = null, activeAnimFrame = null, pingInt
 function startHeartbeat() {
     if (pingInterval) clearInterval(pingInterval);
     
-    // Hàm gọi API
     const doPing = async () => {
-        if(state.username === 'Guest') return;
-        const res = await apiCall('/api/ping', {});
-        if (res && res.success) {
-            updateOnlineCounter(res.online);
+        if(!state.username || state.username === 'Guest') return;
+
+        try {
+            const res = await apiCall('/api/ping', {});
+            if (res && res.success) {
+                updateOnlineCounter(res.online);
+            }
+        } catch (e) {
+            console.log("Ping failed");
         }
     };
 
@@ -61,8 +65,6 @@ function startHeartbeat() {
 }
 
 function updateOnlineCounter(count) {
-    state.onlineCount = count;
-
     const container = document.getElementById('online-count-display');
     const numberSpan = document.getElementById('online-number');
 
@@ -1354,6 +1356,7 @@ async function checkAuth() {
             state.inventory = res.user.inventory;
             state.isAdmin = res.user.isAdmin;
             state.serverInfo = res.serverInfo || state.serverInfo;
+            startHeartbeat();
 
             localStorage.setItem('pgw_user', state.username);
             
@@ -1386,6 +1389,7 @@ function logout() {
     showToast('Đã đăng xuất thành công', 'info');
     setTab('profile');
 }
+
 
 
 
