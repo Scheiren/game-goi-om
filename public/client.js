@@ -877,7 +877,7 @@ function initRace(container) {
         document.getElementById('race-tap').classList.remove('hidden');
         document.getElementById('race-time').innerText = time;
         const tapBtn = document.getElementById('race-tap');
-        tapBtn.onclick = () => { clicks++; document.getElementById('race-clicks').innerText = clicks; playSound('click'); };
+        tapBtn.onclick = () => { clicks++; document.getElementById('race-clicks').innerText = clicks; };
         
         activeInterval = setInterval(async () => {
             const timeEl = document.getElementById('race-time');
@@ -888,7 +888,7 @@ function initRace(container) {
                 tapBtn.classList.add('hidden');
                 document.getElementById('race-result').classList.remove('hidden');
                 document.getElementById('race-final').innerText = clicks;
-                const earned = Math.floor(clicks/6);
+                const earned = (clicks/6) | 0;
                 document.getElementById('race-earned').innerText = earned;
                 if(earned > 0) {
                     await apiCall('/api/update-coins', {username: state.username, amount: earned});
@@ -897,7 +897,7 @@ function initRace(container) {
                     playSound('gacha-result');
                 }
             }
-        }, 500);
+        }, 1000);
     };
 }
 
@@ -1321,6 +1321,7 @@ function logout() {
     
     setTab('profile');
 }
+
 
 
 
