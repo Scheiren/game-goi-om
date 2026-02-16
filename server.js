@@ -328,8 +328,16 @@ app.get('/api/user/codes', async (req, res) => {
 app.post('/api/exchange', async (req, res) => {
     try {
         const { username, code } = req.body;
-        
-        if(!code) return res.status(400).json({success: false, message: "Vui lòng nhập mã code!"});
+
+        const user = await User.findOne({ username });
+        if (!user) return res.status(404).json({success: false, message: "User không tồn tại"});
+
+        if (user.inventory.length >= MAX_INVENTORY_SIZE) {
+            return res.json({ 
+                success: false, 
+                message: "Túi đồ đầy! Không thể nhận thêm quà." 
+            });
+        }
 
         const giftCode = await GiftCode.findOne({ code: code.trim(), isUsed: false });
 
@@ -497,6 +505,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
