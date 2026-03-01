@@ -50,15 +50,15 @@ const GiftCode = mongoose.model('GiftCode', GiftCodeSchema);
 
 // --- CONFIG ---
 const BASE_RARITY_CONFIG = {
-    F:   { baseChance: 0.3138, value: 10 },
-    D:   { baseChance: 0.25, value: 20 },
-    C:   { baseChance: 0.20, value: 50 },
-    B:   { baseChance: 0.12, value: 100 },
-    A:   { baseChance: 0.08, value: 250 },
-    S:   { baseChance: 0.03, value: 1000 },
-    SS:  { baseChance: 0.005, value: 2500 },
-    SSS: { baseChance: 0.001, value: 5000 },
-    EX:  { baseChance: 0.0002, value: 10000 }
+    F:   { baseChance: 0.35,  value: 10 },
+    D:   { baseChance: 0.25,  value: 20 },
+    C:   { baseChance: 0.16,  value: 50 },
+    B:   { baseChance: 0.1,  value: 100 },
+    A:   { baseChance: 0.06,  value: 250 },
+    S:   { baseChance: 0.04, value: 1000 },
+    SS:  { baseChance: 0.029, value: 2500 },
+    SSS: { baseChance: 0.01, value: 5000 },
+    EX:  { baseChance: 0.001, value: 10000 }
 };
 
 const INITIAL_TEMPLATES = [
@@ -83,13 +83,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Lấy token từ header "Bearer <token>"
+    const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) return res.status(401).json({ success: false, message: "Vui lòng đăng nhập!" });
 
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) return res.status(403).json({ success: false, message: "Phiên đăng nhập hết hạn!" });
-        req.user = decoded; // Lưu thông tin user đã giải mã vào biến req
+        req.user = decoded;
         next();
     });
 };
@@ -272,16 +272,14 @@ app.post('/api/gacha', verifyToken, async (req, res) => {
 //BURN
 app.post('/api/burn', verifyToken, async (req, res) => {
     try {
-        const username = req.user.username; // Bảo mật
+        const username = req.user.username;
         const { uniqueId } = req.body;
-        // ... (Logic Burn cũ giữ nguyên, copy từ bài sửa trước vào đây) ...
         const user = await User.findOne({ username });
         const idx = user.inventory.findIndex(i => i.uniqueId === uniqueId);
         if (idx > -1) {
             const item = user.inventory[idx];
             let codeStr = null;
             if (['SSS', 'EX'].includes(item.rarity)) {
-                if (item.rarity === 'EX') { /* Logic trả EX vào pool nếu muốn */ }
                 const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
                 codeStr = `PIL-${item.id}-${item.rarity}-${randomStr}${Date.now().toString().slice(-4)}`;
                 await GiftCode.create({ code: codeStr, itemTemplateId: item.id, rarity: item.rarity, generatedBy: username });
@@ -430,7 +428,7 @@ app.post('/api/burn-batch', async (req, res) => {
     } catch(err) { res.status(500).json({ success: false }); }
 });
 
-// --- CÁC API KHÁC (GET INFO, ADMIN...) ---
+// --- OTHER API---
 
 app.get('/api/pillows', async (req, res) => {
     try {
@@ -441,7 +439,6 @@ app.get('/api/pillows', async (req, res) => {
 });
 
 app.post('/api/admin/pillow', verifyToken, verifyAdmin, async (req, res) => {
-    // ... Logic admin cũ giữ nguyên ...
     try {
         const { pillow, action } = req.body;
         let system = await System.findOne({ id: 'main' });
@@ -478,7 +475,6 @@ app.post('/api/update-coins', verifyToken, async (req, res) => {
         
         if (isNaN(safeAmount) || safeAmount <= 0) return res.json({ success: false });
 
-        // Giới hạn cứng: Mỗi lần chơi game không thể nhận quá 200 xu
         if (safeAmount > 1000) {
             safeAmount = 1000;
             console.warn(`Cảnh báo: User ${username} có dấu hiệu hack xu!`);
@@ -513,6 +509,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
