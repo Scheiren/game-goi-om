@@ -50,15 +50,15 @@ const GiftCode = mongoose.model('GiftCode', GiftCodeSchema);
 
 // --- CONFIG ---
 const BASE_RARITY_CONFIG = {
-    F:   { baseChance: 0.20,  value: 10 },
-    D:   { baseChance: 0.18,  value: 20 },
-    C:   { baseChance: 0.16,  value: 50 },
-    B:   { baseChance: 0.14,  value: 100 },
-    A:   { baseChance: 0.11,  value: 250 },
-    S:   { baseChance: 0.089, value: 1000 },
-    SS:  { baseChance: 0.07,  value: 2500 },
-    SSS: { baseChance: 0.05,  value: 5000 },
-    EX:  { baseChance: 0.001, value: 10000 }
+    F:   { baseChance: 0.35,  value: 10 },    // 35.0%
+    D:   { baseChance: 0.25,  value: 20 },    // 25.0%
+    C:   { baseChance: 0.16,  value: 50 },    // 16.0%
+    B:   { baseChance: 0.10,  value: 100 },   // 10.0%
+    A:   { baseChance: 0.06,  value: 250 },   // 6.0%
+    S:   { baseChance: 0.04,  value: 1000 },  // 4.0%
+    SS:  { baseChance: 0.029, value: 2500 },  // 2.9%
+    SSS: { baseChance: 0.01,  value: 5000 },  // 1.0%
+    EX:  { baseChance: 0.001, value: 10000 }  // 0.1%
 };
 
 const INITIAL_TEMPLATES = [
@@ -509,6 +509,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server running at port ${PORT}`));
+
 
 
 
